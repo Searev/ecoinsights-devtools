@@ -1,0 +1,57 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+  .form-field {
+    @apply p-1 border border-2 rounded;
+  }
+
+  h1 {
+    @apply font-medium text-xl;
+  }
+
+  label {
+    @apply font-medium;
+  }
+
+  input,
+  textarea,
+  select {
+    @apply px-2 bg-surface hover:bg-surfaceLight focus:outline focus:outline-1 outline-offset-0 outline-white;
+  }
+
+  .btn-primary {
+    @apply py-1 px-2 bg-btn text-white rounded ease-out duration-200 hover:bg-primary-800;
+  }
+
+  .btn-secondary {
+    @apply py-1 px-2 bg-background border border-2 border-btn text-white rounded ease-out duration-200 hover:bg-surface;
+  }
+
+  .btn-icon-tertiary {
+    @apply py-1 px-2 hover:bg-surfaceLight ease-out duration-200;
+  }
+
+  .btn-tertiary {
+    @apply py-1 px-2 bg-background hover:bg-surfaceLight ease-out duration-200;
+  }
+
+  .btn-danger {
+    @apply py-1 px-2 bg-red-500 text-white rounded ease-out duration-200 hover:bg-red-800;
+  }
+
+  .btn-secondary-danger {
+    @apply py-1 px-2 bg-background border border-2 border-red-500 text-white rounded ease-out duration-200 hover:bg-surface;
+  }
+}
+
+.text-overflow-ellipsis {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+dialog::backdrop {
+  background-color: rgba(0, 0, 0, 0.8);
+}
