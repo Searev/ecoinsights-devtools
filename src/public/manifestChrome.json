@@ -1,0 +1,20 @@
+{
+  "name": "EcoMetrics Devtools",
+  "description": "Extension permettant d'analyser l'impact environnemental d'un parcours utilisateur sur un service Web.",
+  "version": "1.0",
+  "manifest_version": 3,
+  "devtools_page": "devtools.html",
+  "permissions": [
+    "activeTab",
+    "browsingData",
+    "contextMenus",
+    "scripting",
+    "tabs"
+  ],
+  "host_permissions": ["*://*/*"],
+  "icons": {
+    "32": "icons/icon_32.png",
+    "48": "icons/icon_48.png",
+    "128": "icons/icon_128.png"
+  }
+}

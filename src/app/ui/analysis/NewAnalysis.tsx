@@ -2,9 +2,21 @@ import { Component, Show, createResource } from "solid-js";
 import { useEcometricsStore } from "../../store";
 import Logo from "../shared/icons/Logo";
 import { useNavigate } from "@solidjs/router";
-import { Service } from "../../domain/models/service";
 import { Analysis } from "../../domain/models/analysis";
 import { getBrowser } from "../../infra/browser-factory";
+import { getBooleanFormValue, getFormValue } from "../../helpers/form.helpers";
+import { getUrl } from "../../helpers/url.helper";
+
+const ANALYSIS_FORM_ID = "newAnalysisForm";
+
+interface NewAnalysisFormParams {
+  name: string;
+  description: string;
+  url: string;
+  refreshOnStart: string;
+  triggerNewPageOnLinkClicked: string;
+  triggerNewPageOnFormSubmitted: string;
+}
 
 async function getInspectedTabSuggestion() {
   const browser = await getBrowser();
@@ -18,43 +30,44 @@ const NewAnalysis: Component = () => {
 
   function submit(event: Event) {
     event.preventDefault();
-    const formValue: any = [
-      ...new FormData(
-        document.getElementById("newAnalysisForm") as HTMLFormElement
-      ).entries(),
-    ].reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {});
-
-    const service: Service = {
-      id: window.crypto.randomUUID().toString(),
-      name: formValue["name"],
-      description: formValue["description"],
-      url: formValue["url"],
-    };
-    store.addService(service);
+    const formValue = getFormValue<NewAnalysisFormParams>(ANALYSIS_FORM_ID);
 
     const analysis: Analysis = {
       id: window.crypto.randomUUID().toString(),
       date: new Date(),
-      service,
+      service: {
+        id: window.crypto.randomUUID().toString(),
+        name: formValue["name"],
+        description: formValue["description"],
+        url: formValue["url"],
+      },
       pages: [],
     };
     store.addAnalysis(analysis);
 
-    navigate(
-      `/analysis/${analysis.id}/recording?refreshOnStart=${
-        formValue["refreshOnStart"] === "on"
-      }`
-    );
+    const url = getUrl(`/analysis/${analysis.id}/recording`, {
+      refreshOnStart: getBooleanFormValue(formValue, "refreshOnStart"),
+      triggerNewPageOnLinkClicked: getBooleanFormValue(
+        formValue,
+        "triggerNewPageOnLinkClicked"
+      ),
+      triggerNewPageOnFormSubmitted: getBooleanFormValue(
+        formValue,
+        "triggerNewPageOnFormSubmitted"
+      ),
+    });
+
+    navigate(url.toString());
   }
 
   return (
     <Show when={!suggestion.loading} fallback={"Loading..."}>
-      <form id="newAnalysisForm" onSubmit={submit} class="p-3">
+      <form id={ANALYSIS_FORM_ID} onSubmit={submit} class="p-3">
         <header class="flex flex-row items-center">
           <Logo />
           <div class="flex flex-col mx-3">
             <h1>EcoMetrics</h1>
-            <p>Commencer l’analyse d’éco-conception</p>
+            <p>Nouvelle analyse d’éco-conception</p>
           </div>
           <div class="flex-1" />
           <button type="submit" class="btn-primary">
@@ -93,7 +106,8 @@ const NewAnalysis: Component = () => {
             value={suggestion()?.url ?? ""}
           />
 
-          <div>
+          <span class="font-semibold">Paramètres de l'analyse</span>
+          <div class="mb-1">
             <input
               type="checkbox"
               id="refreshOnStart"
@@ -102,6 +116,31 @@ const NewAnalysis: Component = () => {
             />
             <label for="refreshOnStart" class="ml-2">
               Raffraîchir la page au début de l'analyse
+            </label>
+          </div>
+
+          <div class="mb-1">
+            <input
+              type="checkbox"
+              id="triggerNewPageOnLinkClicked"
+              name="triggerNewPageOnLinkClicked"
+              checked
+            />
+            <label for="triggerNewPageOnLinkClicked" class="ml-2">
+              Déclencer l'analyse d'une nouvelle page dès le clic sur un lien
+            </label>
+          </div>
+
+          <div class="mb-1">
+            <input
+              type="checkbox"
+              id="triggerNewPageOnFormSubmitted"
+              name="triggerNewPageOnFormSubmitted"
+              checked
+            />
+            <label for="triggerNewPageOnFormSubmitted" class="ml-2">
+              Déclencer l'analyse d'une nouvelle page dès la soumission d'un
+              formulaire
             </label>
           </div>
         </section>

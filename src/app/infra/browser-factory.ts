@@ -1,11 +1,29 @@
 import { Browser } from "../domain/models/browser";
-import { getBrowserManifestV3 } from "./browser-chrome-manifest-v3";
+import { getBrowserFirefox } from "./browser-firefox";
+import { getBrowserChrome } from "./browser-chrome";
 import { getBrowserMock } from "./browser-mock";
 
-export async function getBrowser(): Promise<Browser> {
+let _browser: Browser | null = null;
+
+async function initBrowser() {
   const browserInstance = window.chrome || (window as any)["browser"];
-  if (browserInstance == null) {
-    return getBrowserMock();
+  if (browserInstance?.scripting != null) {
+    console.log("Using browser Chrome");
+    return getBrowserChrome();
   }
-  return getBrowserManifestV3();
+
+  if (browserInstance != null) {
+    console.log("Using browser Firefox");
+    return getBrowserFirefox();
+  }
+
+  return getBrowserMock();
+}
+
+export async function getBrowser(): Promise<Browser> {
+  if (_browser == null) {
+    _browser = await initBrowser();
+  }
+
+  return _browser;
 }

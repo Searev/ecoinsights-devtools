@@ -2,7 +2,12 @@ import { PageInfos } from "../domain/models/page-infos";
 import { Closeable } from "../domain/models/closeable";
 import { DomInfos } from "../domain/models/dom-infos";
 import { NetworkRequest } from "../domain/models/network-request";
-import { Browser } from "../domain/models/browser";
+import {
+  BasicListener,
+  Browser,
+  NewAnalysisListener,
+  UrlChangeListener,
+} from "../domain/models/browser";
 import { PageDescription } from "../domain/models/page-description";
 
 const EVENT_INTERVAL = 1000;
@@ -53,25 +58,23 @@ class BrowserMock implements Browser {
     return requests;
   }
 
-  listenToDomProfile(
-    onNewAnalysis: (
-      domInfos: DomInfos,
-      scannedPage: Omit<PageDescription, "description">
-    ) => void
-  ): Closeable {
+  listenToDomProfile(onNewAnalysis: NewAnalysisListener): Closeable {
     let isAnalysing = true;
     const analyseAndReprogram = async () => {
       if (!isAnalysing) {
         return;
       }
 
-      onNewAnalysis(
-        { domSize: 100 + Math.ceil(10 * Math.random()), date: new Date() },
-        {
+      onNewAnalysis({
+        domInfos: {
+          domSize: 100 + Math.ceil(10 * Math.random()),
+          date: new Date(),
+        },
+        scannedPage: {
           name: "Mocked page",
           url: "www.example.org",
-        }
-      );
+        },
+      });
 
       setTimeout(() => analyseAndReprogram(), EVENT_INTERVAL);
     };
@@ -107,7 +110,19 @@ class BrowserMock implements Browser {
     };
   }
 
-  listenToUrlChanges(onChange: (newUrl: string) => void): Closeable {
+  listenToUrlChanges(_onChange: UrlChangeListener): Closeable {
+    return {
+      close: () => {},
+    };
+  }
+
+  listenToLinkClicked(_onLinkClicked: BasicListener): Closeable {
+    return {
+      close: () => {},
+    };
+  }
+
+  listenToFormSubmitted(_onLinkClicked: BasicListener): Closeable {
     return {
       close: () => {},
     };

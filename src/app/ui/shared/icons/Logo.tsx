@@ -8,7 +8,6 @@ export default function Logo() {
     >
       <g transform="translate(-659 -160)">
         <circle
-          data-name="Ellipse 1"
           cx="20"
           cy="20"
           r="20"

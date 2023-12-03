@@ -1,9 +1,0 @@
-{
-  "name": "EcoMetrics Devtools",
-  "description": "plug-in permettant d'analyser l'impact environnemental d'un parcours utilisateur sur un service Web.",
-  "version": "1.0",
-  "manifest_version": 3,
-  "devtools_page": "devtools/index.html",
-  "permissions": ["activeTab", "tabs", "scripting", "browsingData"],
-  "host_permissions": ["*://*/*"]
-}

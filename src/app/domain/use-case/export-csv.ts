@@ -1,5 +1,7 @@
+import { round } from "../../helpers/math.helpers";
 import { Analysis } from "../models/analysis";
 import { PageAnalysis } from "../models/page-analysis";
+import { getEcoIndexGrade } from "./ecoindex";
 
 const CSV_MEDIA_TYPE = "text/csv";
 const CSV_EXTENSION = "csv";
@@ -9,7 +11,7 @@ const NEW_LINE_DIVIDER = "\n";
 interface FieldToExport {
   columnName: string;
   field?: keyof PageAnalysis;
-  getter?: (el: PageAnalysis) => string;
+  getter?: (el: PageAnalysis) => string | number;
 }
 
 const FIELDS_TO_EXPORT: FieldToExport[] = [
@@ -25,9 +27,19 @@ const FIELDS_TO_EXPORT: FieldToExport[] = [
   },
   { columnName: "Taille des requêtes (kb)", field: "requestSizeInKb" },
   { columnName: "Taille du DOM", field: "maxDomSize" },
-  { columnName: "Emissions de GES (gCO2e)", field: "emissionsGES" },
-  { columnName: "Consommation d'eau bleue", field: "consommationEauBleue" },
-  { columnName: "Ecoindex", field: "ecoindex" },
+  {
+    columnName: "Emissions de GES (gCO2e)",
+    getter: ({ impact }) => round(impact.emissionsGES),
+  },
+  {
+    columnName: "Consommation d'eau bleue",
+    getter: ({ impact }) => round(impact.consommationEauBleue),
+  },
+  { columnName: "Ecoindex", getter: ({ impact }) => round(impact.ecoindex) },
+  {
+    columnName: "Note",
+    getter: ({ impact }) => getEcoIndexGrade(impact.ecoindex),
+  },
 ];
 
 export function exportAnalysisToCsv(analysis: Analysis): string {

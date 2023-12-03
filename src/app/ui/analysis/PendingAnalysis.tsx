@@ -4,6 +4,7 @@ import { useEcometricsStore } from "../../store";
 import { PageAnalysis } from "../../domain/models/page-analysis";
 import analyseWebFlow, {
   WebFlowAnalysis,
+  WebFlowAnalysisParams,
 } from "../../domain/use-case/analyse-web-flow";
 import AnalysisResult from "./AnalysisResult";
 import Logo from "../shared/icons/Logo";
@@ -20,7 +21,14 @@ const PendingAnalysis: Component = () => {
     createSignal<WebFlowAnalysis | null>(null);
 
   createEffect(() => {
-    analyseWebFlow(searchParams["refreshOnStart"] === "true", (analysis) => {
+    const params: WebFlowAnalysisParams = {
+      refreshOnStart: searchParams["refreshOnStart"] === "true",
+      triggerNewPageOnFormSubmitted:
+        searchParams["triggerNewPageOnFormSubmitted"] === "true",
+      triggerNewPageOnLinkClicked:
+        searchParams["triggerNewPageOnLinkClicked"] === "true",
+    };
+    analyseWebFlow(params, (analysis) => {
       setAnalysis(analysis);
     }).then((callbacks) => setWebFlowAnalysis(callbacks));
   });

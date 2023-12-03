@@ -14,9 +14,9 @@
 
 chrome.devtools.panels.create(
   "Ecometrics",
-  "icon.png",
-  "app/index.html",
+  "icons/icon_32.png",
+  "index.html",
   () => {
-    console.log("User switched to Ecometrics panel");
+    console.log("Ecometrics panel created");
   }
 );

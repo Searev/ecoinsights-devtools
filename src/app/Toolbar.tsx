@@ -27,7 +27,7 @@ const Toolbar: Component = () => {
         }}
         disabled={analysis().length === 0}
         value={analysisId()}
-        class="px-2 bg-surface hover:bg-surfaceLight"
+        class="px-2 bg-surface hover:bg-surfaceLight max-w-[50%] text-overflow-ellipsis"
       >
         <option value="" disabled>
           Sélectionnez une analyse

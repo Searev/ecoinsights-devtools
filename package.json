@@ -5,7 +5,9 @@
   "scripts": {
     "start": "vite",
     "dev": "vite",
-    "build": "vite build --base=./",
+    "build": "npm run build:app && npm run build:scripts",
+    "build:app": "vite build --base=./",
+    "build:scripts": "esbuild ./src/scripts/*.ts --bundle --minify --outdir=./dist/scripts",
     "serve": "vite preview"
   },
   "license": "MIT",

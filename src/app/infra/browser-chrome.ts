@@ -1,14 +1,23 @@
 import { PageInfos } from "../domain/models/page-infos";
 import { Closeable } from "../domain/models/closeable";
-import { DomInfos } from "../domain/models/dom-infos";
 import { NetworkRequest } from "../domain/models/network-request";
-import { Browser } from "../domain/models/browser";
+import {
+  BasicListener,
+  Browser,
+  NewAnalysisListener,
+  RequestDoneListener,
+  UrlChangeListener,
+} from "../domain/models/browser";
 import { PageDescription } from "../domain/models/page-description";
+import {
+  ContentScriptMessageType,
+  ContentScriptMessage,
+} from "../../bridge/connexion";
 
 const DOM_SCAN_INTERVAL_MS = 1000;
 
-export async function getBrowserManifestV3(): Promise<BrowserChromeManifestV3> {
-  return BrowserChromeManifestV3.instance ?? init();
+export async function getBrowserChrome(): Promise<BrowserChrome> {
+  return BrowserChrome.instance ?? init();
 }
 
 async function init() {
@@ -19,30 +28,40 @@ async function init() {
     throw new Error("No tab id could be found");
   }
 
-  const instance = new BrowserChromeManifestV3(tabId);
+  const instance = new BrowserChrome(tabId);
 
-  BrowserChromeManifestV3.instance = instance;
+  BrowserChrome.instance = instance;
   return instance;
 }
 
-class BrowserChromeManifestV3 implements Browser {
-  static instance: BrowserChromeManifestV3 | undefined;
-  private probePort: chrome.runtime.Port | undefined;
+class BrowserChrome implements Browser {
+  static instance: BrowserChrome | undefined;
+  onLinkClickListeners: Array<{ id: string; notify: BasicListener }> = [];
+  onFormSubmittedListeners: Array<{ id: string; notify: BasicListener }> = [];
 
   constructor(private tabId: number) {
-    /*
-    chrome.scripting.executeScript({
-      target: { tabId, allFrames: true },
-      files: ["scripts/probe-v3.js"],
+    this.initProbe();
+    chrome.runtime.onMessage.addListener((message: ContentScriptMessage) => {
+      switch (message.type) {
+        case ContentScriptMessageType.LINK_CLICKED:
+          this.onLinkClickListeners.forEach((listener) => listener.notify());
+          break;
+        case ContentScriptMessageType.FORM_SUBMITTED:
+          this.onFormSubmittedListeners.forEach((listener) =>
+            listener.notify()
+          );
+          break;
+        default:
+          break;
+      }
     });
+  }
 
-    this.probePort = chrome.runtime.connect({
-      name: "ecometrics-browser",
+  initProbe() {
+    chrome.scripting.executeScript({
+      target: { tabId: this.tabId, allFrames: true },
+      files: ["scripts/probeChrome.js"],
     });
-    this.probePort.onMessage.addListener((frameMeasures) => {
-      this.logInConsole("Recerived message");
-    });
-    */
   }
 
   async getPageInfo(): Promise<PageInfos> {
@@ -99,12 +118,7 @@ class BrowserChromeManifestV3 implements Browser {
     });
   }
 
-  listenToDomProfile(
-    onNewAnalysis: (
-      domInfos: DomInfos,
-      scannedPage: Omit<PageDescription, "description">
-    ) => void
-  ): Closeable {
+  listenToDomProfile(onNewAnalysis: NewAnalysisListener): Closeable {
     let isAnalysing = true;
     const analyseAndReprogram = async () => {
       if (!isAnalysing) {
@@ -121,10 +135,13 @@ class BrowserChromeManifestV3 implements Browser {
           url: window.location.href,
         }),
       });
-      onNewAnalysis(
-        { domSize: res.result?.domSize ?? 0, date: now },
-        { url: res.result?.url ?? "", name: res.result?.name ?? "" }
-      );
+      onNewAnalysis({
+        domInfos: { domSize: res.result?.domSize ?? 0, date: now },
+        scannedPage: {
+          url: res.result?.url ?? "",
+          name: res.result?.name ?? "",
+        },
+      });
 
       setTimeout(() => analyseAndReprogram(), DOM_SCAN_INTERVAL_MS);
     };
@@ -138,9 +155,7 @@ class BrowserChromeManifestV3 implements Browser {
     };
   }
 
-  listenToNetworkRequests(
-    onRequestDone: (request: NetworkRequest) => void
-  ): Closeable {
+  listenToNetworkRequests(onRequestDone: RequestDoneListener): Closeable {
     const processRequest = (entry: HARFormatEntry) => {
       onRequestDone({
         method: entry.request.method ?? "",
@@ -161,7 +176,7 @@ class BrowserChromeManifestV3 implements Browser {
     };
   }
 
-  listenToUrlChanges(onChange: (newUrl: string) => void): Closeable {
+  listenToUrlChanges(onChange: UrlChangeListener): Closeable {
     const proocessTabChange = (tabId: number, changeInfo: any) => {
       if (tabId === this.tabId && changeInfo.url) {
         onChange(changeInfo.url);
@@ -173,6 +188,34 @@ class BrowserChromeManifestV3 implements Browser {
     return {
       close: () => {
         chrome.tabs.onUpdated.removeListener(proocessTabChange);
+      },
+    };
+  }
+
+  listenToLinkClicked(onLinkClicked: BasicListener): Closeable {
+    const listener = {
+      id: window.crypto.randomUUID().toString(),
+      notify: onLinkClicked,
+    };
+    this.onLinkClickListeners.push(listener);
+    return {
+      close: () => {
+        const index = this.onLinkClickListeners.indexOf(listener);
+        this.onLinkClickListeners.splice(index, 1);
+      },
+    };
+  }
+
+  listenToFormSubmitted(onFormSubmitted: BasicListener): Closeable {
+    const listener = {
+      id: window.crypto.randomUUID().toString(),
+      notify: onFormSubmitted,
+    };
+    this.onFormSubmittedListeners.push(listener);
+    return {
+      close: () => {
+        const index = this.onFormSubmittedListeners.indexOf(listener);
+        this.onFormSubmittedListeners.splice(index, 1);
       },
     };
   }
@@ -206,7 +249,30 @@ class BrowserChromeManifestV3 implements Browser {
         serviceWorkers: true,
       }
     );
-    await chrome.tabs.reload(this.tabId, { bypassCache: true });
+
+    const reloading = chrome.tabs.reload(this.tabId, { bypassCache: true });
+
+    return new Promise((res, rej) => {
+      // Afin de ne résoudre la promesse que lorsque la page est effectivement raffraîchir, et d'y injecter
+      // la sonde au bon moment, on attend que le statut de l'onglet soit 'complete'.
+      return reloading.then(
+        () => {
+          const injectOnReloadComplete = (
+            _tabid: number,
+            changeInfo: chrome.tabs.TabChangeInfo
+          ) => {
+            if (changeInfo.status === "complete") {
+              this.initProbe();
+              res();
+              chrome.tabs.onUpdated.removeListener(injectOnReloadComplete);
+            }
+          };
+
+          chrome.tabs.onUpdated.addListener(injectOnReloadComplete);
+        },
+        () => rej("An error occurred while reloading the page")
+      );
+    });
   }
 
   private isNetworkResource(harEntry: HARFormatEntry) {

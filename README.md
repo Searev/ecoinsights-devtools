@@ -30,8 +30,9 @@ Pour mesurer l'impact environnemental d'un service, vous pouvez procéder de la 
 
 ### Architecture du projet
 
-L'interface utilisateur de ce plugin est réalisée avec le framework [SolidJS](https://www.solidjs.com/) ; l'ensemble est
-quant à lui compilé avec [Vite](https://vitejs.dev/).
+L'interface utilisateur de ce plugin est réalisée avec le framework [SolidJS](https://www.solidjs.com/) et est
+compilée avec [Vite](https://vitejs.dev/). Les scripts d'extension sont quant à eux compilés séparément en utilisant
+[esbuild](https://esbuild.github.io). L'ensemble est développé en Typescript.
 
 Le projet est structuré comme suit :
 
@@ -39,11 +40,12 @@ Le projet est structuré comme suit :
   la racine du dossier `dist` après la compilation du projet
 - les fichiers permettant d'initialiser l'application dans un nouvel onglet des outils de développements sont localisés
   dans le répertoire [src/devtools](./src/devtools)
+- les scripts (service worker, content scripts, etc) sont localisés sans le répertoire [src/scripts](./src/scripts)
 - l'application SolidJS qui tournera dans les outils de développement est localisée dans le répertoire [src/app](./src/app)
 
 L'application en elle-même est décomposée en différentes couches :
 
-- le répertoire [ui](src/app/ui) contient les éléments visuels principaux de l'application (page, composants...), écrits en jsx
+- le répertoire [ui](src/app/ui) contient les éléments visuels principaux de l'application (page, composants...), écrits en tsx
 - le répertoire [domain](src/app/domain) décrit les interfaces utilisées dans l'application, ainsi que les fonctions métier
   permettant de calculer l'impact d'une page
 - le répertoire [infra](src/app/infra) contient tout le code spécifique à la plateforme d'exécution, comme les extensions
@@ -61,10 +63,11 @@ $ npm install # or pnpm install or yarn install
 
 Lancez le projet en mode développement avec la ligne de commande `npm run dev` ou `npm start`
 
-L'application se lancera alors en mode développement ; vous pourrez y accéder à l'adresse [http://localhost:3000/app/](http://localhost:3000/app/).
+L'application se lancera alors en mode développement ; vous pourrez y accéder à l'adresse [http://localhost:3000/](http://localhost:3000/).
 
 ### Compilation des sources
 
 Vous pouvez compiler le projet avec la ligne de commande `npm run build`.
 
-Les sources seront alors disponibles dans le répertoire `dist`.
+Les sources seront alors disponibles dans le répertoire `dist`, que vous pourrez directement importer comme extension non
+empaquetée dans votre navigateur.

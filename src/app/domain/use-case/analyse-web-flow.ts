@@ -5,6 +5,14 @@ import { NetworkRequest } from "../models/network-request";
 import { DomProfile } from "../models/dom-infos";
 import { getBrowser } from "../../infra/browser-factory";
 import { PageInfos } from "../models/page-infos";
+import { isNotOnSamePage } from "../../helpers/url.helper";
+import { Closeable } from "../models/closeable";
+
+export interface WebFlowAnalysisParams {
+  refreshOnStart: boolean;
+  triggerNewPageOnLinkClicked: boolean;
+  triggerNewPageOnFormSubmitted: boolean;
+}
 
 export interface WebFlowAnalysis {
   /**
@@ -32,7 +40,7 @@ export interface WebFlowAnalysis {
  * @returns Ensemble de callbacks pour gérer l'analyse et son arrêt.
  */
 export default async function analyseWebFlow(
-  refreshOnStart: boolean,
+  params: WebFlowAnalysisParams,
   consume: (analysis: PageAnalysis[]) => void
 ): Promise<WebFlowAnalysis> {
   const browser = await getBrowser();
@@ -50,7 +58,7 @@ export default async function analyseWebFlow(
 
   let hasBeenStopped = false;
 
-  if (refreshOnStart) {
+  if (params.refreshOnStart) {
     await browser.refreshCurrentPage();
   } else {
     currentDomProfile.push({
@@ -83,6 +91,10 @@ export default async function analyseWebFlow(
   };
 
   const onClosePage = (newPageInfos: PageInfos | null = null) => {
+    if (currentPageInfos == null) {
+      return;
+    }
+
     const currentAnalysis = createPageAnalysis(
       currentPageInfos,
       currentPageRequests,
@@ -95,10 +107,13 @@ export default async function analyseWebFlow(
     sendAnalysis();
   };
 
+  const listeners: Closeable[] = [];
+
   const networkListener = browser.listenToNetworkRequests((request) => {
     currentPageRequests.push(request);
     sendAnalysis();
   });
+  listeners.push(networkListener);
 
   const urlChangeListener = browser.listenToUrlChanges(async (changedUrl) => {
     const newInfos = await browser.getPageInfo();
@@ -112,29 +127,55 @@ export default async function analyseWebFlow(
       onClosePage(newInfos);
     }
   });
+  listeners.push(urlChangeListener);
 
-  const domListener = browser.listenToDomProfile((domInfos, scannedPage) => {
-    if (scannedPage.url === currentPageInfos?.url) {
-      currentDomProfile.push(domInfos);
-      if (currentMaxDomSize < domInfos.domSize) {
-        currentMaxDomSize = domInfos.domSize;
+  const domListener = browser.listenToDomProfile(
+    ({ domInfos, scannedPage }) => {
+      if (scannedPage.url === currentPageInfos?.url) {
+        console.log("Adding new analysis");
+        currentDomProfile.push(domInfos);
+        if (currentMaxDomSize < domInfos.domSize) {
+          currentMaxDomSize = domInfos.domSize;
+        }
+        // Le nom de la page n'est pas forcément à jour au moment où l'url a changé ;
+        // si on détecte un nom plus à jour pour cette même URL, on l'applique donc.
+        if (currentPageInfos.title != scannedPage.name) {
+          currentPageInfos.title = scannedPage.name;
+        }
+        sendAnalysis();
+      } else {
+        console.log(
+          "Ignoring analysis, got infos on " +
+            scannedPage.url +
+            " but is navigation to " +
+            currentPageInfos?.url
+        );
       }
-      // Le nom de la page n'est pas forcément à jour au moment où l'url a changé ;
-      // si on détecte un nom plus à jour pour cette même URL, on l'applique donc.
-      if (currentPageInfos.title != scannedPage.name) {
-        currentPageInfos.title = scannedPage.name;
-      }
-      sendAnalysis();
     }
-  });
+  );
+  listeners.push(domListener);
+
+  if (params.triggerNewPageOnLinkClicked) {
+    const linkClickedListener = browser.listenToLinkClicked(() => {
+      browser.logInConsole("Close page");
+      onClosePage();
+    });
+    listeners.push(linkClickedListener);
+  }
+
+  if (params.triggerNewPageOnLinkClicked) {
+    const formSubmittedListener = browser.listenToFormSubmitted(() => {
+      browser.logInConsole("Close page");
+      onClosePage();
+    });
+    listeners.push(formSubmittedListener);
+  }
 
   return {
     stopCurrentNavigation: () => onClosePage(),
     stopAnalysis: () => {
       if (!hasBeenStopped) {
-        networkListener.close();
-        urlChangeListener.close();
-        domListener.close();
+        listeners.forEach((listener) => listener.close());
         hasBeenStopped = true;
       }
     },
@@ -167,16 +208,4 @@ function createPageAnalysis(
     requestSizeInKb: round(requestSizeInKb),
     impact,
   };
-}
-
-function isNotOnSamePage(url1: string, url2: string) {
-  const parsedUrl1 = new URL(url1);
-  const parsedUrl2 = new URL(url2);
-
-  // On ignore les navigations vers des ancres particulières.
-  return (
-    parsedUrl1.origin !== parsedUrl2.origin ||
-    parsedUrl1.pathname !== parsedUrl2.pathname ||
-    parsedUrl1.search !== parsedUrl2.search
-  );
 }

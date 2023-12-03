@@ -91,7 +91,7 @@ export default function AnalysisResult(props: {
                 <th class="p-1 text-left">Page</th>
                 <th class="p-1 text-left">Requêtes</th>
                 <th class="p-1 text-left">Taille de la page</th>
-                <th class="p-1 text-left">Taille du DOM</th>
+                <th class="p-1 text-left">Taille du DOM Max</th>
                 <th class="p-1 text-left">EcoIndex</th>
               </tr>
             </thead>
