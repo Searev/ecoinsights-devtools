@@ -79,6 +79,17 @@ class BrowserFirefox implements Browser {
     });
   }
 
+  /**
+   * Checks if the user has allowed EcoMetrics to inject content script and gather data about
+   * this website.
+   * @returns Does the user have granted access to all page data ?
+   */
+  async checkPermission(): Promise<boolean> {
+    return this.sendCommandAndWaitForResult(
+      DevtoolsCommandType.CHECK_PERMISSION
+    );
+  }
+
   async getPageInfo(): Promise<PageInfos> {
     return this.sendCommandAndWaitForResult(DevtoolsCommandType.GET_PAGE_INFO);
   }
@@ -180,6 +191,7 @@ class BrowserFirefox implements Browser {
    */
   private handleCommandResponse(response: BackgroundCommandResponse) {
     switch (response.context.command) {
+      case DevtoolsCommandType.CHECK_PERMISSION:
       case DevtoolsCommandType.GET_PAGE_INFO:
       case DevtoolsCommandType.GET_PAGE_DESCRIPTION:
       case DevtoolsCommandType.GET_PAGE_DOM_SIZE:

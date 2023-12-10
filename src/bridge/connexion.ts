@@ -1,10 +1,11 @@
 export const BRIDGE_CONNECTION = "ecometrics-browser";
 
 /**
- * Message envoyé depuis le DevTools
+ * Message sent from the DevTools
  */
 export enum DevtoolsCommandType {
   INJECT_PROBE,
+  CHECK_PERMISSION,
   GET_PAGE_INFO,
   GET_PAGE_DESCRIPTION,
   GET_PAGE_DOM_SIZE,
@@ -23,7 +24,7 @@ export interface DevtoolCommand {
 }
 
 /**
- * Message envoyé depuis un Content Script
+ * Message sent from a Content Script
  */
 export enum ContentScriptMessageType {
   LINK_CLICKED,
@@ -36,7 +37,7 @@ export interface ContentScriptMessage {
 }
 
 /**
- * Message envoyé depuis le Background Script
+ * Message sent from a Background Script
  */
 export interface BackgroundCommandResponse {
   origin: "command";

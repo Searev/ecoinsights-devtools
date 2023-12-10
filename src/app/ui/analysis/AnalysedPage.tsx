@@ -43,8 +43,8 @@ export default function AnalysedPage(props: {
 
       <div class="p-3">
         <EnvironnementalImpact
-          emissionsGES={props.analysis.impact.emissionsGES}
-          consommationEauBleue={props.analysis.impact.consommationEauBleue}
+          greenhouseGasEmissions={props.analysis.impact.greenhouseGasEmissions}
+          blueWaterConsumption={props.analysis.impact.blueWaterConsumption}
         />
       </div>
 

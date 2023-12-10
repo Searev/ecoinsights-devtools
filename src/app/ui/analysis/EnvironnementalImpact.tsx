@@ -5,18 +5,18 @@ import WaterDrop from "../shared/icons/WaterDrop";
 import { round } from "../../helpers/math.helpers";
 
 export default function EnvironnementalImpact(props: {
-  emissionsGES: number;
-  consommationEauBleue: number;
-  afficherEquivalences?: boolean;
+  greenhouseGasEmissions: number;
+  blueWaterConsumption: number;
+  displayEquivalences?: boolean;
 }) {
-  const kmEquivalents = () => round(props.emissionsGES * 3);
-  const minDoucheEquivalent = () => {
-    const nbMinutes = props.consommationEauBleue / 6;
+  const kmEquivalents = () => round(props.greenhouseGasEmissions * 3);
+  const minutesOfShowerEquivalent = () => {
+    const nbMinutes = props.blueWaterConsumption / 6;
     const minutes = Math.floor(nbMinutes);
-    const secondes = Math.floor((nbMinutes - minutes) * 60);
+    const seconds = Math.floor((nbMinutes - minutes) * 60);
     return minutes > 0
-      ? `${minutes} minutes et ${secondes} secondes`
-      : `${secondes} secondes`;
+      ? `${minutes} minutes et ${seconds} secondes`
+      : `${seconds} secondes`;
   };
 
   return (
@@ -41,20 +41,22 @@ export default function EnvironnementalImpact(props: {
         <div class="flex flex-col flex-1">
           <div class="flex flex-row items-center">
             <Cloud />
-            <span class="font-bold ml-2">{props.emissionsGES}g CO2e</span>
+            <span class="font-bold ml-2">
+              {props.greenhouseGasEmissions}g CO2e
+            </span>
           </div>
           <span>Emissions de gaz à effet de serre</span>
         </div>
         <div class="flex flex-col flex-1">
           <div class="flex flex-row items-center">
             <WaterDrop />
-            <span class="font-bold ml-2">{props.consommationEauBleue} cL</span>
+            <span class="font-bold ml-2">{props.blueWaterConsumption} cL</span>
           </div>
           <span>Consommation d'eau bleue</span>
         </div>
       </div>
 
-      <Show when={props.afficherEquivalences}>
+      <Show when={props.displayEquivalences}>
         <div class="mt-3">
           <h2 class="font-bold">Mises en perspectives</h2>
           <p>
@@ -63,15 +65,14 @@ export default function EnvironnementalImpact(props: {
             minute.
             <br />
             <br />
-            Si votre parcours émet <strong>
-              {props.emissionsGES}g CO2e
-            </strong>{" "}
-            et consomme <strong>{props.consommationEauBleue}cl d’eau</strong>,
-            cela signifie que pour 1000 visiteurs mensuels, l’empreinte est
-            de&nbsp;
-            {props.emissionsGES}kg de CO2e et {props.consommationEauBleue}{" "}
-            litres d’eau par mois – soit un trajet de {kmEquivalents()}km en
-            voiture et une douche de {minDoucheEquivalent()}.
+            Si votre parcours émet{" "}
+            <strong>{props.greenhouseGasEmissions}g CO2e</strong> et consomme{" "}
+            <strong>{props.blueWaterConsumption}cl d’eau</strong>, cela signifie
+            que pour 1000 visiteurs mensuels, l’empreinte est de&nbsp;
+            {props.greenhouseGasEmissions}kg de CO2e et{" "}
+            {props.blueWaterConsumption} litres d’eau par mois – soit un trajet
+            de {kmEquivalents()}km en voiture et une douche de{" "}
+            {minutesOfShowerEquivalent()}.
           </p>
         </div>
       </Show>

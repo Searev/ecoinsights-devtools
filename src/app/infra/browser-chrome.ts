@@ -13,6 +13,9 @@ import {
   ContentScriptMessageType,
   ContentScriptMessage,
 } from "../../bridge/connexion";
+import { getPageInfo } from "../../scripts/shared/get-page-info";
+import { getPageDescription } from "../../scripts/shared/get-page-description";
+import { logInConsole } from "../../scripts/shared/log-in-console";
 
 const DOM_SCAN_INTERVAL_MS = 1000;
 
@@ -57,6 +60,13 @@ class BrowserChrome implements Browser {
     });
   }
 
+  /**
+   * On Chrome, Permissions are granted at installation time.
+   */
+  async checkPermission(): Promise<boolean> {
+    return true;
+  }
+
   initProbe() {
     chrome.scripting.executeScript({
       target: { tabId: this.tabId, allFrames: true },
@@ -65,36 +75,11 @@ class BrowserChrome implements Browser {
   }
 
   async getPageInfo(): Promise<PageInfos> {
-    const [res] = await chrome.scripting.executeScript({
-      target: { tabId: this.tabId },
-      args: [],
-      func: () => ({
-        title: document.title,
-        url: window.location.href,
-        domSize: document.querySelectorAll("*:not(svg *)").length,
-      }),
-    });
-
-    return res.result;
+    return getPageInfo(this.tabId);
   }
 
   async getPageDescription(): Promise<PageDescription> {
-    const [res] = await chrome.scripting.executeScript({
-      target: { tabId: this.tabId },
-      args: [],
-      func: () => ({
-        name: document.title,
-        description:
-          (
-            document.querySelector(
-              'meta[name="description"]'
-            ) as HTMLMetaElement
-          )?.content ?? "",
-        url: window.location.origin,
-      }),
-    });
-
-    return res.result;
+    return getPageDescription(this.tabId);
   }
 
   getNetworkRequests(): Promise<NetworkRequest[]> {
@@ -126,20 +111,13 @@ class BrowserChrome implements Browser {
       }
 
       const now = new Date();
-      const [res] = await chrome.scripting.executeScript({
-        target: { tabId: this.tabId },
-        args: [],
-        func: () => ({
-          domSize: document.querySelectorAll("*:not(svg *)").length,
-          name: document.title,
-          url: window.location.href,
-        }),
-      });
+      const { domSize, url, title } = await getPageInfo(this.tabId);
+
       onNewAnalysis({
-        domInfos: { domSize: res.result?.domSize ?? 0, date: now },
+        domInfos: { domSize: domSize ?? 0, date: now },
         scannedPage: {
-          url: res.result?.url ?? "",
-          name: res.result?.name ?? "",
+          url: url ?? "",
+          name: title ?? "",
         },
       });
 
@@ -180,6 +158,9 @@ class BrowserChrome implements Browser {
     const proocessTabChange = (tabId: number, changeInfo: any) => {
       if (tabId === this.tabId && changeInfo.url) {
         onChange(changeInfo.url);
+        // We may have loaded a completely different HTML page; in which case we need to
+        // inject the probe again.
+        this.initProbe();
       }
     };
 
@@ -221,11 +202,7 @@ class BrowserChrome implements Browser {
   }
 
   logInConsole(message: string): void {
-    chrome.scripting.executeScript({
-      target: { tabId: this.tabId },
-      args: [message],
-      func: (message: string) => console.log("Ecometrics : " + message),
-    });
+    logInConsole(this.tabId, message);
   }
 
   openUrlInNewTab(url: string): void {
@@ -253,8 +230,8 @@ class BrowserChrome implements Browser {
     const reloading = chrome.tabs.reload(this.tabId, { bypassCache: true });
 
     return new Promise((res, rej) => {
-      // Afin de ne résoudre la promesse que lorsque la page est effectivement raffraîchir, et d'y injecter
-      // la sonde au bon moment, on attend que le statut de l'onglet soit 'complete'.
+      // In order to resolve the promise only when the page is actually refreshed and to inject the probe at the good time,
+      // we have to wait for the status of the tab to be 'complete'.
       return reloading.then(
         () => {
           const injectOnReloadComplete = (

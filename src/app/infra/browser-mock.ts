@@ -1,6 +1,5 @@
 import { PageInfos } from "../domain/models/page-infos";
 import { Closeable } from "../domain/models/closeable";
-import { DomInfos } from "../domain/models/dom-infos";
 import { NetworkRequest } from "../domain/models/network-request";
 import {
   BasicListener,
@@ -33,6 +32,10 @@ async function init() {
 
 class BrowserMock implements Browser {
   static instance: BrowserMock | undefined;
+
+  async checkPermission(): Promise<boolean> {
+    return true;
+  }
 
   async getPageInfo(): Promise<PageInfos> {
     return {

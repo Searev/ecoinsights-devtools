@@ -38,13 +38,14 @@ export function computeEcoIndexAndEnvironmentalImpact(
   requestsSize: number
 ): Impact {
   const ecoindex = computeEcoIndex(domSize, nbRequests, requestsSize);
-  const emissionsGES = computeGreenhouseGasesEmissionfromEcoIndex(ecoindex);
-  const consommationEauBleue = computeWaterConsumptionfromEcoIndex(ecoindex);
+  const greenhouseGasEmissions =
+    computeGreenhouseGasesEmissionfromEcoIndex(ecoindex);
+  const blueWaterConsumption = computeWaterConsumptionfromEcoIndex(ecoindex);
 
   return {
     ecoindex,
-    emissionsGES,
-    consommationEauBleue,
+    greenhouseGasEmissions,
+    blueWaterConsumption,
   };
 }
 export function getEcoIndexGrade(ecoIndex: number) {
@@ -58,8 +59,8 @@ export function getEcoIndexGrade(ecoIndex: number) {
 }
 
 /**
-Calcul ecoIndex based on formula from web site www.ecoindex.fr
-**/
+ * Calcul ecoIndex based on formula from web site www.ecoindex.fr
+ **/
 function computeEcoIndex(dom: number, req: number, size: number) {
   const q_dom = computeQuantile(quantiles_dom, dom);
   const q_req = computeQuantile(quantiles_req, req);

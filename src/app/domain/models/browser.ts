@@ -18,6 +18,7 @@ export type UrlChangeListener = (newUrl: string) => void;
 export type BasicListener = () => void;
 
 export interface Browser {
+  checkPermission(): Promise<boolean>;
   getPageInfo(): Promise<PageInfos>;
   getPageDescription(): Promise<PageDescription>;
   getNetworkRequests(): Promise<NetworkRequest[]>;

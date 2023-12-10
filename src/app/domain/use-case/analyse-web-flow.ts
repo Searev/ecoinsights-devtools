@@ -16,28 +16,27 @@ export interface WebFlowAnalysisParams {
 
 export interface WebFlowAnalysis {
   /**
-   * Marque l'analyse de la page en cours comme terminée. Les requêtes qui seront interceptées
-   * compteront alors pour la page d'après.
+   * Marks the analysis of the current page as over. The network requests that will be after that
+   * will count for the next page.
    */
   stopCurrentNavigation(): void;
   /**
-   * Arrête l'analyse, et met fin à tous les listeners en cours.
+   * Stops the analysis, and closes all active listeners..
    */
   stopAnalysis(): void;
 }
 
 /**
- * Analyse la page web actuelle, et notifie l'appelant de toute nouveauté, notamment :
- * - évolutions de la taille du DOM
- * - envoi/réception de nouvelles requêtes
- * - Navigation sur de nouvelles pages
+ * Analyse the current webpage, and notify the calling function of any news, regarding :
+ * - the evolution of the size of the DOM
+ * - the reception of any new request
+ * - the navigation to new pages
  *
- * L'écoindex, avec ses indicateurs environnementaux associés, et mis à jour en temps réel
- * avec ces dernières informations.
+ * The ecoindex, with all its environmental indicators, is updated at real time with these informations.
  *
- * @param refreshOnStart Si `true`, alors l'onglet sera raffraîchit et son cache purgé au début de l'analyse
- * @param consume Callback appelé dès qu'une analyse plus récente est disponible
- * @returns Ensemble de callbacks pour gérer l'analyse et son arrêt.
+ * @param refreshOnStart If set to `true`, then the urrent tab will be refreshed, and its cache purged a the beggining of the analysis
+ * @param consume Callback called as soon as a new analysis is available
+ * @returns A set of functions used to handle the analysis, and stop it.
  */
 export default async function analyseWebFlow(
   params: WebFlowAnalysisParams,
@@ -60,6 +59,8 @@ export default async function analyseWebFlow(
 
   if (params.refreshOnStart) {
     await browser.refreshCurrentPage();
+    const requestsToRefreshPage = await browser.getNetworkRequests();
+    currentPageRequests.push(...requestsToRefreshPage);
   } else {
     currentDomProfile.push({
       domSize: pageInfo.domSize,
@@ -157,7 +158,6 @@ export default async function analyseWebFlow(
 
   if (params.triggerNewPageOnLinkClicked) {
     const linkClickedListener = browser.listenToLinkClicked(() => {
-      browser.logInConsole("Close page");
       onClosePage();
     });
     listeners.push(linkClickedListener);
@@ -165,7 +165,6 @@ export default async function analyseWebFlow(
 
   if (params.triggerNewPageOnLinkClicked) {
     const formSubmittedListener = browser.listenToFormSubmitted(() => {
-      browser.logInConsole("Close page");
       onClosePage();
     });
     listeners.push(formSubmittedListener);

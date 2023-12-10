@@ -8,12 +8,10 @@ let _browser: Browser | null = null;
 async function initBrowser() {
   const browserInstance = window.chrome || (window as any)["browser"];
   if (browserInstance?.scripting != null) {
-    console.log("Using browser Chrome");
     return getBrowserChrome();
   }
 
   if (browserInstance != null) {
-    console.log("Using browser Firefox");
     return getBrowserFirefox();
   }
 

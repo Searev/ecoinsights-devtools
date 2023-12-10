@@ -29,11 +29,11 @@ const FIELDS_TO_EXPORT: FieldToExport[] = [
   { columnName: "Taille du DOM", field: "maxDomSize" },
   {
     columnName: "Emissions de GES (gCO2e)",
-    getter: ({ impact }) => round(impact.emissionsGES),
+    getter: ({ impact }) => round(impact.greenhouseGasEmissions),
   },
   {
     columnName: "Consommation d'eau bleue",
-    getter: ({ impact }) => round(impact.consommationEauBleue),
+    getter: ({ impact }) => round(impact.blueWaterConsumption),
   },
   { columnName: "Ecoindex", getter: ({ impact }) => round(impact.ecoindex) },
   {

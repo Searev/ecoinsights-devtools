@@ -60,19 +60,19 @@ const SavedAnalysis: Component = () => {
         additionnalContext={
           <div class="px-3 pb-3 bg-surface border-t-2 border-border">
             <EnvironnementalImpact
-              emissionsGES={round(
+              greenhouseGasEmissions={round(
                 analysis()?.pages.reduce(
-                  (acc, el) => acc + el.impact.emissionsGES,
+                  (acc, el) => acc + el.impact.greenhouseGasEmissions,
                   0
                 ) ?? 0
               )}
-              consommationEauBleue={round(
+              blueWaterConsumption={round(
                 analysis()?.pages.reduce(
-                  (acc, el) => acc + el.impact.consommationEauBleue,
+                  (acc, el) => acc + el.impact.blueWaterConsumption,
                   0
                 ) ?? 0
               )}
-              afficherEquivalences
+              displayEquivalences
             />
           </div>
         }

@@ -19,10 +19,11 @@ export default function AnalysisResult(props: {
 
   const [selectedRow, selectRow] = createSignal<number | null>(null);
 
-  const emissionsGESTotales = () =>
+  const totalGreenhouseGasEmissions = () =>
     round(
       props.pagesAnalysed.reduce(
-        (acc, currentAnalysis) => acc + currentAnalysis.impact.emissionsGES,
+        (acc, currentAnalysis) =>
+          acc + currentAnalysis.impact.greenhouseGasEmissions,
         0
       )
     );
@@ -30,7 +31,7 @@ export default function AnalysisResult(props: {
     round(
       props.pagesAnalysed.reduce(
         (acc, currentAnalysis) =>
-          acc + currentAnalysis.impact.consommationEauBleue,
+          acc + currentAnalysis.impact.blueWaterConsumption,
         0
       )
     );
@@ -170,7 +171,7 @@ export default function AnalysisResult(props: {
       <Show when={props.pagesAnalysed.length > 0}>
         <div class="flex flew-row items-center w-full border-t-2 border-border py-2 px-3">
           <span>Impact total&nbsp;:&nbsp;</span>
-          <span>{emissionsGESTotales()}g CO2e</span>
+          <span>{totalGreenhouseGasEmissions()}g CO2e</span>
           <span class="mx-1 h-full border-r border-border" />
           <span>{consommationEauBleue()}cL d'eau bleue</span>
           <span class="flex-1" />

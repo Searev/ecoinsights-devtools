@@ -1,12 +1,14 @@
 // https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/Extending_the_developer_tools#working_with_content_scripts
 
-import { PageInfos } from "../app/domain/models/page-infos";
 import {
   DevtoolsCommandType,
   DevtoolCommand,
   ContentScriptMessage,
   BackgroundMessage,
 } from "../bridge/connexion";
+import { getPageDescription } from "./shared/get-page-description";
+import { getPageInfo } from "./shared/get-page-info";
+import { logInConsole } from "./shared/log-in-console";
 
 const DOM_SCAN_INTERVAL_MS = 1_000;
 
@@ -18,14 +20,11 @@ interface Subscription {
 type Subscriptions = Subscription[];
 
 /**
- * Le bridge permet une communication asynchrone entre l'application, executée dans les DevTools,
- * et les scripts de contenus qui peuvent être injectés.
- *
- * Deux canneaux de communication existent :
- * - Le premier permet à l'application d'exécuter une fonction dans le contexte de la page, et d'en
- *   récupérer le résultat.
- * - Le second permet à l'application d'écouter les messages envoyés par un script de contenu présent
- *   sur la page
+ * The bridge allows for communicating between the SolidJS App, executed in the DevTools, and content scripts that
+ * may be injected.
+ * Two communication channels exist :
+ * - The first one allow the app to execute a function in the context of the page, and retrieve its results
+ * - The second allows the app to listen to messages sent from a content script injected into this page.
  */
 class Bridge {
   // Maps the DevTools port to the tab ID
@@ -35,7 +34,6 @@ class Bridge {
   private _urlChangesSubscriptions: Subscriptions = [];
 
   constructor() {
-    console.log("Ecometrics bridge enabled !");
     this.listenToContentScriptMessages();
     this.listenToDevToolsCommands();
   }
@@ -48,9 +46,17 @@ class Bridge {
         }
 
         switch (message.command) {
+          case DevtoolsCommandType.CHECK_PERMISSION:
+            this.checkPermission(message.tabId).then((response) =>
+              this.sendMessageToDevTools(message.tabId, {
+                origin: "command",
+                context: message,
+                response,
+              })
+            );
+            break;
           case DevtoolsCommandType.GET_PAGE_INFO:
-            console.log("🚩 received GET_PAGE_INFO");
-            this.getPageInfo(message.tabId).then((response) =>
+            getPageInfo(message.tabId).then((response) =>
               this.sendMessageToDevTools(message.tabId, {
                 origin: "command",
                 context: message,
@@ -59,8 +65,7 @@ class Bridge {
             );
             break;
           case DevtoolsCommandType.GET_PAGE_DESCRIPTION:
-            console.log("🚩 received GET_PAGE_DESCRIPTION");
-            this.getPageDescription(message.tabId).then((response) =>
+            getPageDescription(message.tabId).then((response) =>
               this.sendMessageToDevTools(message.tabId, {
                 origin: "command",
                 context: message,
@@ -69,7 +74,6 @@ class Bridge {
             );
             break;
           case DevtoolsCommandType.GET_PAGE_DOM_SIZE:
-            console.log("🚩 received GET_PAGE_DOM_SIZE");
             this.getPageDomSize(message.tabId).then((response) =>
               this.sendMessageToDevTools(message.tabId, {
                 origin: "command",
@@ -79,31 +83,21 @@ class Bridge {
             );
             break;
           case DevtoolsCommandType.LISTEN_DOM_PROFILE:
-            console.log("🚩 received LISTEN_DOM_PROFILE");
             this.listenToDomProfile(message);
             break;
           case DevtoolsCommandType.LISTEN_URL_CHANGES:
-            console.log("🚩 received LISTEN_URL_CHANGES");
             this.listenToUrlChanges(message);
             break;
           case DevtoolsCommandType.STOP_LISTEN_DOM_PROFILE:
-            console.log("🚩 received STOP_LISTEN_DOM_PROFILE");
             this.stopListeningToDomProfile(message.tabId);
             break;
           case DevtoolsCommandType.STOP_LISTEN_URL_CHANGES:
-            console.log("🚩 received STOP_LISTEN_URL_CHANGES");
             this.stopListeningToUrlChanges(message.tabId);
             break;
           case DevtoolsCommandType.LOG_INTO_CONSOLE:
-            console.log("🚩 received LOG_INTO_CONSOLE");
-            chrome.scripting.executeScript({
-              target: { tabId: message.tabId },
-              args: [message.extra],
-              func: (message: string) => console.log("Ecometrics : " + message),
-            });
+            logInConsole(message.tabId, message.extra);
             break;
           case DevtoolsCommandType.REFRESH_PAGE:
-            console.log("🚩 received REFRESH_PAGE");
             this.refreshPage(message.tabId);
             break;
           default:
@@ -227,55 +221,30 @@ class Bridge {
           tabId,
           message,
         });
-        // Message was received from Content Script
-      } else {
-        // Message was received from Devtools
       }
     };
     chrome.runtime.onMessage.addListener(handleMessage);
   }
 
   private sendMessageToDevTools(tabId: number, message: BackgroundMessage) {
-    //console.log("🚩 -> Send message to devTools", message);
     const port = this.devToolsConnections.get(tabId);
     if (port == null) return;
 
     port.postMessage(message);
   }
 
-  private async getPageInfo(tabId: number): Promise<PageInfos> {
-    const [res] = await chrome.scripting.executeScript({
-      target: { tabId },
-      func: () => ({
-        title: document.title,
-        url: window.location.href,
-        domSize: document.querySelectorAll("*:not(svg *)").length,
-      }),
-    });
+  private async checkPermission(tabId: number): Promise<boolean> {
+    const tabs = await chrome.tabs.query({ currentWindow: true, active: true });
+    const tab = tabs.find((el) => el.id === tabId);
+    const origin =
+      tab?.url != null ? new URL(tab.url).origin + "/" : "<all_urls>";
 
-    return res.result;
-  }
+    const permissionsToRequest = {
+      permissions: ["activeTab"],
+      origins: [origin],
+    };
 
-  private async getPageDescription(tabId: number): Promise<{
-    name: string;
-    description: string;
-    url: string;
-  }> {
-    const [res] = await chrome.scripting.executeScript({
-      target: { tabId },
-      func: () => ({
-        name: document.title,
-        description:
-          (
-            document.querySelector(
-              'meta[name="description"]'
-            ) as HTMLMetaElement
-          )?.content ?? "",
-        url: window.location.origin,
-      }),
-    });
-
-    return res.result;
+    return chrome.permissions.contains(permissionsToRequest);
   }
 
   private async getPageDomSize(tabId: number): Promise<{
@@ -283,16 +252,8 @@ class Bridge {
     name: string;
     url: string;
   }> {
-    const [res] = await chrome.scripting.executeScript({
-      target: { tabId },
-      func: () => ({
-        domSize: document.querySelectorAll("*:not(svg *)").length,
-        name: document.title,
-        url: window.location.href,
-      }),
-    });
-
-    return res.result;
+    const { title, url, domSize } = await getPageInfo(tabId);
+    return { name: title, url, domSize };
   }
 
   private async refreshPage(tabId: number) {
