@@ -132,7 +132,7 @@ class BrowserMock implements Browser {
   }
 
   logInConsole(message: string): void {
-    console.log("Ecometrics : " + message);
+    console.log("EcoInsights : " + message);
   }
 
   openUrlInNewTab(url: string): void {

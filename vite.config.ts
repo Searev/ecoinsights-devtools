@@ -20,7 +20,7 @@ export default defineConfig({
     port: 3000,
   },
   build: {
-    target: "esnext",
+    target: ["chrome88", "firefox109"],
     outDir,
     emptyOutDir: true,
     rollupOptions: {

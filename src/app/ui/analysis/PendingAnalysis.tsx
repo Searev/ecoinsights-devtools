@@ -1,6 +1,6 @@
 import { useSearchParams, useNavigate, useParams } from "@solidjs/router";
 import { Component, createEffect, createSignal, onCleanup } from "solid-js";
-import { useEcometricsStore } from "../../store";
+import { useEcoInsightsStore } from "../../store";
 import { PageAnalysis } from "../../domain/models/page-analysis";
 import analyseWebFlow, {
   WebFlowAnalysis,
@@ -13,7 +13,7 @@ const PendingAnalysis: Component = () => {
   const navigate = useNavigate();
   const params = useParams();
   const [searchParams] = useSearchParams();
-  const store = useEcometricsStore();
+  const store = useEcoInsightsStore();
   const analysis = store!.store.analysis.find((el) => el.id === params.id);
 
   const [pagesAnalysed, setAnalysis] = createSignal<PageAnalysis[]>([]);
@@ -47,7 +47,7 @@ const PendingAnalysis: Component = () => {
         <header class="flex flex-row items-center p-3">
           <Logo />
           <div class="flex flex-col mx-3">
-            <h1>EcoMetrics</h1>
+            <h1>EcoInsights</h1>
             <p>Analyse en cours</p>
           </div>
           <div class="flex-1" />

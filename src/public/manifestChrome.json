@@ -1,5 +1,5 @@
 {
-  "name": "EcoMetrics Devtools",
+  "name": "EcoInsights Devtools",
   "description": "Extension permettant d'analyser l'impact environnemental d'un parcours utilisateur sur un service Web.",
   "version": "1.0",
   "manifest_version": 3,

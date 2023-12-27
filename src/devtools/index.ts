@@ -1,8 +1,8 @@
 chrome.devtools.panels.create(
-  "Ecometrics",
+  "EcoInsights",
   "icons/icon_32.png",
   "index.html",
   () => {
-    console.log("Ecometrics panel created");
+    console.log("EcoInsights panel created");
   }
 );

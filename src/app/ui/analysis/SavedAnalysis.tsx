@@ -1,17 +1,18 @@
 import { useNavigate, useParams } from "@solidjs/router";
 import { Component, createSignal } from "solid-js";
-import { useEcometricsStore } from "../../store";
+import { useEcoInsightsStore } from "../../store";
 import Logo from "../shared/icons/Logo";
 import AnalysisResult from "./AnalysisResult";
 import EnvironnementalImpact from "./EnvironnementalImpact";
 import { round } from "../../helpers/math.helpers";
 import { downloadAsCsv } from "../../domain/use-case/export-csv";
 import ConfirmDialog from "../shared/ConfimDialog";
+import MetricsDetailList from "../shared/MetricsDetailList";
 
 const SavedAnalysis: Component = () => {
   const navigate = useNavigate();
   const params = useParams();
-  const store = useEcometricsStore();
+  const store = useEcoInsightsStore();
   const [showRemoveDialog, setShowRemoveDialog] = createSignal(false);
   const analysis = () => {
     const result = store!.store.analysis.find((el) => el.id === params.id);
@@ -30,7 +31,7 @@ const SavedAnalysis: Component = () => {
           <header class="flex flex-row items-center p-3">
             <Logo />
             <div class="flex flex-col mx-3">
-              <h1>EcoMetrics</h1>
+              <h1>EcoInsights</h1>
               <p>Analyse terminée</p>
             </div>
             <div class="flex-1" />
@@ -58,27 +59,33 @@ const SavedAnalysis: Component = () => {
           </header>
         }
         additionnalContext={
-          <div class="px-3 pb-3 bg-surface border-t-2 border-border">
-            <EnvironnementalImpact
-              greenhouseGasEmissions={round(
-                analysis()?.pages.reduce(
-                  (acc, el) => acc + el.impact.greenhouseGasEmissions,
-                  0
-                ) ?? 0
-              )}
-              blueWaterConsumption={round(
-                analysis()?.pages.reduce(
-                  (acc, el) => acc + el.impact.blueWaterConsumption,
-                  0
-                ) ?? 0
-              )}
-              displayEquivalences
-            />
+          <div>
+            <div class="px-3 pb-3 bg-surface border-t-2 border-border">
+              <EnvironnementalImpact
+                greenhouseGasEmissions={round(
+                  analysis()?.pages.reduce(
+                    (acc, el) => acc + el.impact.greenhouseGasEmissions,
+                    0
+                  ) ?? 0
+                )}
+                blueWaterConsumption={round(
+                  analysis()?.pages.reduce(
+                    (acc, el) => acc + el.impact.blueWaterConsumption,
+                    0
+                  ) ?? 0
+                )}
+                displayEquivalences
+              />
+            </div>
+            <div class="px-3 pb-3 bg-surface border-t-2 border-border">
+              <MetricsDetailList pagesAnalysed={analysis()?.pages ?? []} />
+            </div>
           </div>
         }
         analysis={analysis()}
         pagesAnalysed={analysis()?.pages ?? []}
         onStopCurrentPage={null}
+        hideTotalImpact
       />
 
       <ConfirmDialog

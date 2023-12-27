@@ -4,9 +4,9 @@ import { Analysis } from "./domain/models/analysis";
 import { Service } from "./domain/models/service";
 import { createContext, useContext } from "solid-js";
 
-const STORE_KEY = "ECOMETRICS_BROWSER_STORE";
+const STORE_KEY = "ECOINSIGHTS_PROFILER_STORE";
 
-export class EcometricsStore {
+export class EcoInsightsStore {
   services: Service[];
   analysis: Analysis[];
   currentAnalysisId: string | undefined;
@@ -31,7 +31,7 @@ export class EcometricsStore {
     );
   }
 
-  static restore(): EcometricsStore {
+  static restore(): EcoInsightsStore {
     const json = localStorage.getItem(STORE_KEY);
     try {
       const decoded = JSON.parse(json ?? "");
@@ -54,19 +54,19 @@ export class EcometricsStore {
           })),
         })) ?? [];
 
-      return new EcometricsStore(
+      return new EcoInsightsStore(
         services ?? [],
         analysis ?? [], // Améliorer le parsing, avec la gestion des dates
         undefined
       );
     } catch {
-      return new EcometricsStore([], [], undefined);
+      return new EcoInsightsStore([], [], undefined);
     }
   }
 }
 
-export interface EcometricsStoreValue {
-  store: EcometricsStore;
+export interface EcoInsightsStoreValue {
+  store: EcoInsightsStore;
   addService(service: Service): void;
   updateService(id: string, service: Service): void;
   removeService(id: string): void;
@@ -76,11 +76,11 @@ export interface EcometricsStoreValue {
   setCurrentAnalysis(id: string): void;
 }
 
-const EcometricsStoreContext = createContext<EcometricsStoreValue>();
+const EcoInsightsStoreContext = createContext<EcoInsightsStoreValue>();
 
-export function EcometricsStoreProvider(props: any) {
-  const [store, setStore] = createStore<EcometricsStore>(
-    EcometricsStore.restore()
+export function EcoInsightsStoreProvider(props: any) {
+  const [store, setStore] = createStore<EcoInsightsStore>(
+    EcoInsightsStore.restore()
   );
 
   const addService = (service: Service) => {
@@ -121,7 +121,7 @@ export function EcometricsStoreProvider(props: any) {
     setStore("currentAnalysisId", id);
   };
 
-  const value: EcometricsStoreValue = {
+  const value: EcoInsightsStoreValue = {
     store,
     addService,
     updateService,
@@ -133,12 +133,12 @@ export function EcometricsStoreProvider(props: any) {
   };
 
   return (
-    <EcometricsStoreContext.Provider value={value}>
+    <EcoInsightsStoreContext.Provider value={value}>
       {props.children}
-    </EcometricsStoreContext.Provider>
+    </EcoInsightsStoreContext.Provider>
   );
 }
 
-export function useEcometricsStore() {
-  return useContext(EcometricsStoreContext);
+export function useEcoInsightsStore() {
+  return useContext(EcoInsightsStoreContext);
 }

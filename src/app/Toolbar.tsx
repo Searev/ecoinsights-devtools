@@ -1,9 +1,9 @@
 import { A, useNavigate } from "@solidjs/router";
 import { Component, For, createSignal } from "solid-js";
-import { useEcometricsStore } from "./store";
+import { useEcoInsightsStore } from "./store";
 
 const Toolbar: Component = () => {
-  const state = useEcometricsStore();
+  const state = useEcoInsightsStore();
   const navigate = useNavigate();
   const analysis = () => state!.store.analysis;
   const [analysisId, setAnalysisId] = createSignal<string>();
@@ -15,7 +15,7 @@ const Toolbar: Component = () => {
         href="/"
         class="px-2 py-1 hover:bg-surfaceLight ease-out duration-200"
       >
-        EcoMetrics
+        EcoInsights
       </A>
       <select
         onChange={(el) => {

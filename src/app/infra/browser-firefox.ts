@@ -34,7 +34,7 @@ async function init() {
 }
 
 /**
- * Unlinke Chrome extensions, Firefox DevTool scripts cannot access many of the browser.* APIs.
+ * Unlike Chrome extensions, Firefox DevTool scripts cannot access many of the browser.* APIs.
  * In order to do so, we need to rely on a background script and a content script.
  *
  * The content script is automatically injected in the web page thanks to its declaration in the manifest.
@@ -80,7 +80,7 @@ class BrowserFirefox implements Browser {
   }
 
   /**
-   * Checks if the user has allowed EcoMetrics to inject content script and gather data about
+   * Checks if the user has allowed EcoInsights to inject content script and gather data about
    * this website.
    * @returns Does the user have granted access to all page data ?
    */
@@ -211,7 +211,7 @@ class BrowserFirefox implements Browser {
         break;
       default:
         console.log(
-          "Ecometrics browser : unhandled command response",
+          "EcoInsights Profiler : unhandled command response",
           response
         );
         break;

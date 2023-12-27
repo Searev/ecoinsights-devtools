@@ -1,6 +1,6 @@
 {
-  "name": "vite-template-solid",
-  "version": "0.0.0",
+  "name": "ecoinsights-profiler",
+  "version": "0.1.0",
   "description": "",
   "scripts": {
     "start": "vite",
@@ -20,6 +20,7 @@
     "@typescript-eslint/parser": "^6.8.0",
     "autoprefixer": "^10.4.16",
     "chrome-types": "^0.1.234",
+    "ecoindex_reference": "github:cnumr/ecoindex_reference#main",
     "eslint": "^8.51.0",
     "eslint-plugin-solid": "^0.13.0",
     "postcss": "^8.4.31",

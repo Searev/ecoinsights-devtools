@@ -34,6 +34,7 @@ class Bridge {
   private _urlChangesSubscriptions: Subscriptions = [];
 
   constructor() {
+    console.log("EceInsights Bridge Created !");
     this.listenToContentScriptMessages();
     this.listenToDevToolsCommands();
   }

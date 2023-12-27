@@ -1,6 +1,6 @@
-# Ecometrics browser (V 0.1.0)
+# EcoInsights Profiler (V 0.1.0)
 
-Ecometrics Browser est une extension pour navigateurs (Chrome, Firefox) permettant de mesurer l'impact environnemental
+EcoInsights Profiler est une extension pour navigateurs (Chrome >= 88, Firefox >= 109) permettant de mesurer l'impact environnemental
 d'un parcours utilisateur complet sur un service numérique.
 
 Il se fonde sur 3 projets pré-existant.
@@ -9,7 +9,7 @@ Il se fonde sur 3 projets pré-existant.
 - [EcoMeter](http://www.ecometer.org/)
 - [Green IT Analysis](https://github.com/cnumr/GreenIT-Analysis)
 
-EcoMetrics reprend notamment la méthodologie utilisée par Green IT Analysis, en l'enrichissant de sorte à également fonctionner nativement sur des applications monopages (Single Page Applications). En cela, elle diffère de ses
+EcoInsights reprend notamment la méthodologie utilisée par Green IT Analysis, en l'enrichissant de sorte à également fonctionner nativement sur des applications monopages (Single Page Applications). En cela, elle diffère de ses
 prédécesseures en permettant une évaluation _dynamique_ de l'impact environnemental des pages web parcourues : vous vérez l'impact environnemental des pages web évoluer au fur et à mesure que leur DOM est modifié, que de nouvelles requêtes sont réalisées, etc.
 
 ## Utilisation
@@ -18,7 +18,7 @@ Pour mesurer l'impact environnemental d'un service, vous pouvez procéder de la 
 
 1. Après avoir installé le plug-in, naviguez sur le service que vous souhaitez analyser
 2. Ouvrez les outils de développement de votre navigateur
-3. Naviguez sur l'onglet "Ecometrics"
+3. Naviguez sur l'onglet "EcoInsights"
 4. Complétez au besoin les informations concernant l'enregistrement à réaliser, et paramétrez-le.
 5. Cliquez sur "Lancer l'analyse"
 6. Réalisez l'ensemble du parcours utilisateur, sans vous soucier du plug-in.
@@ -109,14 +109,14 @@ $ npm run build:chrome
 
 ## Vie privée
 
-Ecometrics Broser s'exécute pûrement dans le navigateur, en y stockant toutes les
+EcoInsights Broser s'exécute pûrement dans le navigateur, en y stockant toutes les
 données nécessaires à son fonctionnement, y compris les analyses sauvegardées. Il
 ne réalise aucun appel réseau, et ne transemt donc aucune information à un
 quelconque service tiers.
 
 ## License
 
-EcoMetrics Browser est sous license AGPLv3.
+EcoInsights Profiler est sous license AGPLv3.
 
 ```
 Copyright (C) 2015 EcoIndex.fr, Frédéric Bordage, (http://ecoindex.fr/quest-ce-que-ecoindex/)

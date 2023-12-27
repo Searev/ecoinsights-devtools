@@ -38,7 +38,7 @@ export default function EnvironnementalImpact(props: {
       </div>
 
       <div class="flex flex-row w-full align-center mt-2">
-        <div class="flex flex-col flex-1">
+        <div class="flex flex-col flex-1 bg-background mr-3 p-3 rounded">
           <div class="flex flex-row items-center">
             <Cloud />
             <span class="font-bold ml-2">
@@ -47,7 +47,7 @@ export default function EnvironnementalImpact(props: {
           </div>
           <span>Emissions de gaz à effet de serre</span>
         </div>
-        <div class="flex flex-col flex-1">
+        <div class="flex flex-col flex-1 bg-background ml-3 p-3 rounded">
           <div class="flex flex-row items-center">
             <WaterDrop />
             <span class="font-bold ml-2">{props.blueWaterConsumption} cL</span>
@@ -57,7 +57,7 @@ export default function EnvironnementalImpact(props: {
       </div>
 
       <Show when={props.displayEquivalences}>
-        <div class="mt-3">
+        <div class="mt-3 p-3 bg-background rounded">
           <h2 class="font-bold">Mises en perspectives</h2>
           <p>
             Pour vous donner une idée, 1 kg CO2e équivaut à un trajet d’environ
@@ -65,13 +65,14 @@ export default function EnvironnementalImpact(props: {
             minute.
             <br />
             <br />
-            Si votre parcours émet{" "}
-            <strong>{props.greenhouseGasEmissions}g CO2e</strong> et consomme{" "}
+            Si votre parcours émet&nbsp;
+            <strong>{props.greenhouseGasEmissions}g CO2e</strong> et
+            consomme&nbsp;
             <strong>{props.blueWaterConsumption}cl d’eau</strong>, cela signifie
             que pour 1000 visiteurs mensuels, l’empreinte est de&nbsp;
-            {props.greenhouseGasEmissions}kg de CO2e et{" "}
+            {props.greenhouseGasEmissions}kg de CO2e et&nbsp;
             {props.blueWaterConsumption} litres d’eau par mois – soit un trajet
-            de {kmEquivalents()}km en voiture et une douche de{" "}
+            de {kmEquivalents()}km en voiture et une douche de&nbsp;
             {minutesOfShowerEquivalent()}.
           </p>
         </div>

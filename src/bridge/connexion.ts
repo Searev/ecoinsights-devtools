@@ -1,4 +1,4 @@
-export const BRIDGE_CONNECTION = "ecometrics-browser";
+export const BRIDGE_CONNECTION = "ecoinsights-profiler";
 
 /**
  * Message sent from the DevTools

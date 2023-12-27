@@ -1,5 +1,5 @@
 import { Component, Show, createResource } from "solid-js";
-import { useEcometricsStore } from "../../store";
+import { useEcoInsightsStore } from "../../store";
 import Logo from "../shared/icons/Logo";
 import { useNavigate } from "@solidjs/router";
 import { Analysis } from "../../domain/models/analysis";
@@ -32,7 +32,7 @@ async function getInspectedTabSuggestion() {
 
 const NewAnalysis: Component = () => {
   const navigate = useNavigate();
-  const store = useEcometricsStore()!;
+  const store = useEcoInsightsStore()!;
   const [suggestion, { refetch }] = createResource(getInspectedTabSuggestion);
 
   function submit(event: Event) {
@@ -109,7 +109,7 @@ const NewAnalysis: Component = () => {
           <header class="flex flex-row items-center">
             <Logo />
             <div class="flex flex-col mx-3">
-              <h1>EcoMetrics</h1>
+              <h1>EcoInsights</h1>
               <p>Nouvelle analyse d’éco-conception</p>
             </div>
             <div class="flex-1" />

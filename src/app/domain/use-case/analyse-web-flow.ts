@@ -133,13 +133,20 @@ export default async function analyseWebFlow(
   const domListener = browser.listenToDomProfile(
     ({ domInfos, scannedPage }) => {
       if (scannedPage.url === currentPageInfos?.url) {
-        console.log("Adding new analysis");
-        currentDomProfile.push(domInfos);
+        if (
+          currentDomProfile.length === 0 ||
+          domInfos.domSize !=
+            currentDomProfile[currentDomProfile.length - 1].domSize
+        ) {
+          currentDomProfile.push(domInfos);
+        } else {
+          currentDomProfile[currentDomProfile.length - 1] = domInfos;
+        }
         if (currentMaxDomSize < domInfos.domSize) {
           currentMaxDomSize = domInfos.domSize;
         }
-        // Le nom de la page n'est pas forcément à jour au moment où l'url a changé ;
-        // si on détecte un nom plus à jour pour cette même URL, on l'applique donc.
+        // The name of the page isn't always up to date when the url changes. If we find
+        // a new name for this URL, we us it a the new title
         if (currentPageInfos.title != scannedPage.name) {
           currentPageInfos.title = scannedPage.name;
         }

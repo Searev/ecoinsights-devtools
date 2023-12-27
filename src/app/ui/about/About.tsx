@@ -8,7 +8,7 @@ const About: Component = () => {
       </header>
       <section>
         <p class="pb-2">
-          Ecometrics Browser est une extension pour navigateurs (Chrome,
+          EcoInsights Profiler est une extension pour navigateurs (Chrome,
           Firefox) permettant de mesurer l'impact environnemental d'un parcours
           utilisateur complet sur un service numérique.
         </p>
@@ -19,7 +19,7 @@ const About: Component = () => {
           <li>Green IT Analysis</li>
         </ul>
         <p class="pb-2">
-          EcoMetrics reprend notamment la méthodologie utilisée par Green IT
+          EcoInsights reprend notamment la méthodologie utilisée par Green IT
           Analysis, en l'enrichissant de sorte à également fonctionner
           nativement sur des applications monopages (Single Page Applications).
           En cela, elle diffère de ses prédécesseures en permettant une

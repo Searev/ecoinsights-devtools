@@ -12,6 +12,7 @@ export default function AnalysisResult(props: {
   analysis?: Analysis;
   pagesAnalysed: PageAnalysis[];
   onStopCurrentPage: (() => void) | null;
+  hideTotalImpact?: boolean;
 }) {
   const [isResizing, setIsResizing] = createSignal<boolean>(false);
   const [bottomSheetHeight, setBottomSheetHeight] = createSignal<number>(150);
@@ -168,7 +169,7 @@ export default function AnalysisResult(props: {
         </Show>
       </div>
 
-      <Show when={props.pagesAnalysed.length > 0}>
+      <Show when={props.pagesAnalysed.length > 0 && !props.hideTotalImpact}>
         <div class="flex flew-row items-center w-full border-t-2 border-border py-2 px-3">
           <span>Impact total&nbsp;:&nbsp;</span>
           <span>{totalGreenhouseGasEmissions()}g CO2e</span>
@@ -176,7 +177,8 @@ export default function AnalysisResult(props: {
           <span>{consommationEauBleue()}cL d'eau bleue</span>
           <span class="flex-1" />
           <span>
-            EcoIndex moyen <EcoIndexBadge ecoindex={ecoIndexMoyen()} />
+            EcoIndex moyen{" "}
+            <EcoIndexBadge ecoindex={ecoIndexMoyen()} showLetter />
           </span>
         </div>
       </Show>

@@ -4,13 +4,13 @@ import {
 } from "../bridge/connexion";
 import { listenToNavigationAndForm } from "./shared/onclick-listener";
 
-const INJECTED_PROBE_TOKEN = "ecometrics-browser-probe";
+const INJECTED_PROBE_TOKEN = "ecoinsights-profiler-probe";
 
 /**
  * Content scripts injected into Chrome can interact directly with the
  * DevTools scripts using `chrome.runtime.sendMesage`
  */
-function EcometricsProbe() {
+function EcoInsightsProbe() {
   const { close } = listenToNavigationAndForm(
     (nextUrl) => {
       const msg: ContentScriptMessage = {
@@ -21,7 +21,7 @@ function EcometricsProbe() {
     },
     (actionUrl) => {
       const msg: ContentScriptMessage = {
-        type: ContentScriptMessageType.LINK_CLICKED,
+        type: ContentScriptMessageType.FORM_SUBMITTED,
         content: actionUrl,
       };
       chrome.runtime.sendMessage(msg);
@@ -33,5 +33,5 @@ function EcometricsProbe() {
 
 // We try to have a single instance of the probe running
 if (window[INJECTED_PROBE_TOKEN] === undefined) {
-  window[INJECTED_PROBE_TOKEN] === EcometricsProbe();
+  window[INJECTED_PROBE_TOKEN] === EcoInsightsProbe();
 }

@@ -52,6 +52,26 @@
   text-overflow: ellipsis;
 }
 
+.has-tooltip .tooltip-content {
+  position: absolute;
+  padding: 0.5rem 0.25rem;
+  background-color: #555;
+  transition: all 0.25s ease-in-out;
+  border-radius: 10px;
+  white-space: nowrap;
+  z-index: 1;
+  transform: translateY(-100%);
+
+  /* Tooltips are hidden by default */
+  visibility: hidden;
+  opacity: 0;
+}
+
+.has-tooltip:hover .tooltip-content {
+  opacity: 100;
+  visibility: visible;
+}
+
 dialog::backdrop {
   background-color: rgba(0, 0, 0, 0.8);
 }

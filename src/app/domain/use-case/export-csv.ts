@@ -38,7 +38,7 @@ const FIELDS_TO_EXPORT: FieldToExport[] = [
   { columnName: "Ecoindex", getter: ({ impact }) => round(impact.ecoindex) },
   {
     columnName: "Note",
-    getter: ({ impact }) => getEcoIndexGrade(impact.ecoindex),
+    getter: ({ impact }) => getEcoIndexGrade(impact.ecoindex)?.grade ?? "/",
   },
 ];
 

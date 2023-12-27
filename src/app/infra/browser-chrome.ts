@@ -70,7 +70,7 @@ class BrowserChrome implements Browser {
   initProbe() {
     chrome.scripting.executeScript({
       target: { tabId: this.tabId, allFrames: true },
-      files: ["scripts/probeChrome.js"],
+      files: ["scripts/probe.js"],
     });
   }
 
