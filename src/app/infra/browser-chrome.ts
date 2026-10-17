@@ -16,6 +16,7 @@ import {
 import { getPageInfo } from "../../scripts/shared/get-page-info";
 import { getPageDescription } from "../../scripts/shared/get-page-description";
 import { logInConsole } from "../../scripts/shared/log-in-console";
+import BestPracticeAnalyzer from "../domain/best-practices/best-practices-analyzer";
 
 const DOM_SCAN_INTERVAL_MS = 1000;
 
@@ -74,7 +75,8 @@ class BrowserChrome implements Browser {
     });
   }
 
-  async getPageInfo(): Promise<PageInfos> {
+  async getPageInfo(analyzer?: BestPracticeAnalyzer): Promise<PageInfos> {
+    await analyzer?.analyzeFrame(this.tabId);
     return getPageInfo(this.tabId);
   }
 
@@ -82,12 +84,16 @@ class BrowserChrome implements Browser {
     return getPageDescription(this.tabId);
   }
 
-  getNetworkRequests(): Promise<NetworkRequest[]> {
+  getNetworkRequests(
+    analyzer?: BestPracticeAnalyzer
+  ): Promise<NetworkRequest[]> {
     return new Promise((resolve) => {
       chrome.devtools.network.getHAR((har) => {
         const entries = har.entries.filter((entry) =>
           this.isNetworkResource(entry)
         );
+
+        entries.forEach((entry) => analyzer?.analyzeHarEntry(entry));
 
         resolve(
           entries.map((entry: any) => ({
@@ -103,7 +109,10 @@ class BrowserChrome implements Browser {
     });
   }
 
-  listenToDomProfile(onNewAnalysis: NewAnalysisListener): Closeable {
+  listenToDomProfile(
+    onNewAnalysis: NewAnalysisListener,
+    analyzer?: BestPracticeAnalyzer
+  ): Closeable {
     let isAnalysing = true;
     const analyseAndReprogram = async () => {
       if (!isAnalysing) {
@@ -112,6 +121,7 @@ class BrowserChrome implements Browser {
 
       const now = new Date();
       const { domSize, url, title } = await getPageInfo(this.tabId);
+      await analyzer?.analyzeFrame(this.tabId);
 
       onNewAnalysis({
         domInfos: { domSize: domSize ?? 0, date: now },
@@ -133,8 +143,12 @@ class BrowserChrome implements Browser {
     };
   }
 
-  listenToNetworkRequests(onRequestDone: RequestDoneListener): Closeable {
+  listenToNetworkRequests(
+    onRequestDone: RequestDoneListener,
+    analyzer?: BestPracticeAnalyzer
+  ): Closeable {
     const processRequest = (entry: HARFormatEntry) => {
+      analyzer?.analyzeHarEntry(entry);
       onRequestDone({
         method: entry.request.method ?? "",
         url: new URL(entry.request.url ?? ""),
@@ -230,7 +244,8 @@ class BrowserChrome implements Browser {
     const reloading = chrome.tabs.reload(this.tabId, { bypassCache: true });
 
     return new Promise((res, rej) => {
-      // In order to resolve the promise only when the page is actually refreshed and to inject the probe at the good time,
+      // In order to resolve the promise only when the page is actually refreshed
+      // and to inject the probe at the good time,
       // we have to wait for the status of the tab to be 'complete'.
       return reloading.then(
         () => {

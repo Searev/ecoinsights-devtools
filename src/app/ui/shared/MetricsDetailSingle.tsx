@@ -1,4 +1,5 @@
 import { For } from "solid-js";
+import { abbreviate } from "../../helpers/strings.helper";
 
 export type PageMetric = { pageTitle: string; metric: number };
 
@@ -31,9 +32,9 @@ export default function MetricsDetailSingle(props: {
                 left: `calc(${percent}% - 4px)`,
               }}
             >
-              <span class="tooltip-content">{`${pageTitle.substring(
-                0,
-                25
+              <span class="tooltip-content">{`${abbreviate(
+                pageTitle,
+                40
               )} : ${metric}`}</span>
             </div>
           )}

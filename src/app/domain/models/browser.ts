@@ -1,3 +1,4 @@
+import BestPracticeAnalyzer from "../best-practices/best-practices-analyzer";
 import { Closeable } from "./closeable";
 import { DomInfos } from "./dom-infos";
 import { NetworkRequest } from "./network-request";
@@ -19,12 +20,20 @@ export type BasicListener = () => void;
 
 export interface Browser {
   checkPermission(): Promise<boolean>;
-  getPageInfo(): Promise<PageInfos>;
+  getPageInfo(analyzer?: BestPracticeAnalyzer): Promise<PageInfos>;
   getPageDescription(): Promise<PageDescription>;
-  getNetworkRequests(): Promise<NetworkRequest[]>;
+  getNetworkRequests(
+    analyzer?: BestPracticeAnalyzer
+  ): Promise<NetworkRequest[]>;
 
-  listenToDomProfile(onNewAnalysis: NewAnalysisListener): Closeable;
-  listenToNetworkRequests(onRequestDone: RequestDoneListener): Closeable;
+  listenToDomProfile(
+    onNewAnalysis: NewAnalysisListener,
+    analyzer?: BestPracticeAnalyzer
+  ): Closeable;
+  listenToNetworkRequests(
+    onRequestDone: RequestDoneListener,
+    analyzer?: BestPracticeAnalyzer
+  ): Closeable;
   listenToUrlChanges(onChange: UrlChangeListener): Closeable;
   listenToLinkClicked(onLinkClicked: BasicListener): Closeable;
   listenToFormSubmitted(onLinkClicked: BasicListener): Closeable;

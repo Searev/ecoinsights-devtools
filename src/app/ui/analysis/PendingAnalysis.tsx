@@ -27,6 +27,7 @@ const PendingAnalysis: Component = () => {
         searchParams["triggerNewPageOnFormSubmitted"] === "true",
       triggerNewPageOnLinkClicked:
         searchParams["triggerNewPageOnLinkClicked"] === "true",
+      checkBestPractices: searchParams["checkBestPractices"] === "true",
     };
     analyseWebFlow(params, (analysis) => {
       setAnalysis(analysis);

@@ -32,7 +32,7 @@ const FIELDS_TO_EXPORT: FieldToExport[] = [
     getter: ({ impact }) => round(impact.greenhouseGasEmissions),
   },
   {
-    columnName: "Consommation d'eau bleue",
+    columnName: "Consommation d'eau bleue (cl)",
     getter: ({ impact }) => round(impact.blueWaterConsumption),
   },
   { columnName: "Ecoindex", getter: ({ impact }) => round(impact.ecoindex) },

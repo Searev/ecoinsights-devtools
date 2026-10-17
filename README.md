@@ -30,7 +30,7 @@ Pour mesurer l'impact environnemental d'un service, vous pouvez procéder de la 
 
 L'écoindex est fondé sur l'analyse d'un ensemble de sites de références, avec une page unique. Son calcul n'est
 donc pas, de base, [forcément conçu pour des analyses de parcours utilisateurs complexes](https://github.com/cnumr/GreenIT-Analysis/issues/60#issuecomment-1164227873). Pour obtenir une idée précise de l'impact environnemental d'un parcours utilisateur,
-rien de mieux qu'une véritable Analyse de Cycle de Vie.
+rien ne vaut une véritable Analyse de Cycle de Vie.
 
 Cependant, dans une première approche, nous considérons que la méthodologie expliquée dans le
 [README de GreenIT Analysis](https://github.com/cnumr/GreenIT-Analysis#enregistrement-du-parcours-utilisateur) peut tout de même
@@ -43,6 +43,8 @@ Cependant, dans une première approche, nous considérons que la méthodologie e
 L'interface utilisateur de ce plugin est réalisée avec le framework [SolidJS](https://www.solidjs.com/) et est
 compilée avec [Vite](https://vitejs.dev/). Les scripts d'extension sont quant à eux compilés séparément en utilisant
 [esbuild](https://esbuild.github.io). L'ensemble est développé en Typescript.
+
+Le calcul de l'EcoIndex repose sur un dépot de référence : [https://github.com/cnumr/ecoindex_reference](https://github.com/cnumr/ecoindex_reference)
 
 Le projet est structuré comme suit :
 
@@ -110,7 +112,7 @@ $ npm run build:chrome
 ## Vie privée
 
 EcoInsights Broser s'exécute pûrement dans le navigateur, en y stockant toutes les
-données nécessaires à son fonctionnement, y compris les analyses sauvegardées. Il
+données nécessaires à son fonctionnement, y compris les analyses passées. Il
 ne réalise aucun appel réseau, et ne transemt donc aucune information à un
 quelconque service tiers.
 
@@ -119,11 +121,11 @@ quelconque service tiers.
 EcoInsights Profiler est sous license AGPLv3.
 
 ```
-Copyright (C) 2015 EcoIndex.fr, Frédéric Bordage, (http://ecoindex.fr/quest-ce-que-ecoindex/)
-Copyright (C) 2016-2022 Frédéric Bordage
-Copyright (C) 2016  The EcoMeter authors (https://gitlab.com/ecoconceptionweb/ecometer)
-Copyright (C) 2019-2022  didierfred@gmail.com
-Copyright (C) 2023  bastienhub@gmail.com
+Copyright (C) 2015       EcoIndex.fr, Frédéric Bordage (https://www.ecoindex.fr/a-propos/)
+Copyright (C) 2016-2022  Frédéric Bordage
+Copyright (C) 2016       The EcoMeter authors (https://gitlab.com/ecoconceptionweb/ecometer)
+Copyright (C) 2019-2022  GreenIT Analysis, didierfred@gmail.com (https://github.com/cnumr/GreenIT-Analysis)
+Copyright (C) 2024       EcoInsights, bastienhub@gmail.com
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as published
@@ -141,6 +143,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 Le texte complet de la license se trouve dans le fichier [LICENSE](./LICENSE).
 
-Les facteurs d'impacts environnementaux (quantités de gaz à effet de serre et d'eau) ne sont pas sous licence libre. Tous droits réservés. © Frédéric Bordage. Merci de demander l'autorisation à son auteur pour les utiliser : fbordage@greenit.fr .
+La formule de l'EcoIndex est sous license [CC By-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/deed.fr)
+
+Les facteurs d'impacts (ACV) utilisés par EcoInsights pour évaluer les impacts environnementaux ne sont pas sous licence libre - © Frédéric Bordage.
+Merci de demander l'autorisation à son auteur pour les utiliser : fbordage at greenit.fr
 
 Une partie du code provient du projet EcoMeter et Green IT Analysis.

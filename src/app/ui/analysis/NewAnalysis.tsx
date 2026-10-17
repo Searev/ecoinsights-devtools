@@ -7,6 +7,7 @@ import { getBrowser } from "../../infra/browser-factory";
 import { getBooleanFormValue, getFormValue } from "../../helpers/form.helpers";
 import { getUrl } from "../../helpers/url.helper";
 import Loader from "../shared/Loader/Loader";
+import manager from "../../domain/best-practices/best-practice-manager";
 
 const ANALYSIS_FORM_ID = "newAnalysisForm";
 
@@ -62,6 +63,7 @@ const NewAnalysis: Component = () => {
         formValue,
         "triggerNewPageOnFormSubmitted"
       ),
+      checkBestPractices: getBooleanFormValue(formValue, "checkBestPractices"),
     });
 
     navigate(url.toString());
@@ -184,6 +186,20 @@ const NewAnalysis: Component = () => {
               <label for="triggerNewPageOnFormSubmitted" class="ml-2">
                 Déclencer l'analyse d'une nouvelle page dès la soumission d'un
                 formulaire
+              </label>
+            </div>
+
+            <div class="mb-1">
+              <input
+                type="checkbox"
+                id="checkBestPractices"
+                name="checkBestPractices"
+                checked
+              />
+
+              <label for="checkBestPractices" class="ml-2">
+                Déclencer l'analyse des bonnes pratiques (
+                {manager.getRules().length} règles)
               </label>
             </div>
           </section>

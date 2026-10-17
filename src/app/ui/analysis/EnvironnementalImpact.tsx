@@ -61,7 +61,7 @@ export default function EnvironnementalImpact(props: {
           <h2 class="font-bold">Mises en perspectives</h2>
           <p>
             Pour vous donner une idée, 1 kg CO2e équivaut à un trajet d’environ
-            3 km en voiture. Une douche consomme en moyenne 6 litres d’eau à la
+            3 km en voiture thermique. Une douche consomme en moyenne 6 litres d’eau à la
             minute.
             <br />
             <br />

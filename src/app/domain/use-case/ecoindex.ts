@@ -1,5 +1,6 @@
 /*
  *  Copyright (C) 2019 - 2022  didierfred@gmail.com
+ *  Copyright (C) 2023 - 2024  bastienhub@gmail.com
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU Affero General Public License as published
@@ -45,6 +46,7 @@ export function computeEcoIndexAndEnvironmentalImpact(
     blueWaterConsumption,
   };
 }
+
 export function getEcoIndexGrade(ecoIndex: number): EcoIndexGrade | undefined {
   // We are looking for the highest grade such as its value is inferior to our ecoIndex
   return gradesFromHighestToLowest.find(({ value }) => ecoIndex > value);

@@ -7,6 +7,7 @@ import ExpandMore from "../shared/icons/ExpandMore";
 import EnvironnementalImpact from "./EnvironnementalImpact";
 import Clear from "../shared/icons/Clear";
 import { DomProfileChart } from "../shared/DomProfileChart";
+import { BestPractices } from "./BestPractices";
 
 export default function AnalysedPage(props: {
   analysis: PageAnalysis;
@@ -47,6 +48,11 @@ export default function AnalysedPage(props: {
           blueWaterConsumption={props.analysis.impact.blueWaterConsumption}
         />
       </div>
+      <Show when={(props.analysis?.bestPractices?.length ?? 0) > 0}>
+        <div class="px-3 pb-3 bg-surface border-t-2 border-border">
+          <BestPractices pagesAnalysed={[props.analysis]} />
+        </div>
+      </Show>
 
       <div class="mt-2">
         <button

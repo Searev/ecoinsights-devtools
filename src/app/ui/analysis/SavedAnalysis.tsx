@@ -1,5 +1,5 @@
 import { useNavigate, useParams } from "@solidjs/router";
-import { Component, createSignal } from "solid-js";
+import { Component, Show, createSignal } from "solid-js";
 import { useEcoInsightsStore } from "../../store";
 import Logo from "../shared/icons/Logo";
 import AnalysisResult from "./AnalysisResult";
@@ -8,6 +8,7 @@ import { round } from "../../helpers/math.helpers";
 import { downloadAsCsv } from "../../domain/use-case/export-csv";
 import ConfirmDialog from "../shared/ConfimDialog";
 import MetricsDetailList from "../shared/MetricsDetailList";
+import { BestPractices } from "./BestPractices";
 
 const SavedAnalysis: Component = () => {
   const navigate = useNavigate();
@@ -80,6 +81,15 @@ const SavedAnalysis: Component = () => {
             <div class="px-3 pb-3 bg-surface border-t-2 border-border">
               <MetricsDetailList pagesAnalysed={analysis()?.pages ?? []} />
             </div>
+            <Show
+              when={analysis()?.pages?.some(
+                (el) => (el.bestPractices?.length ?? 0) > 0
+              )}
+            >
+              <div class="px-3 pb-3 bg-surface border-t-2 border-border">
+                <BestPractices pagesAnalysed={analysis()?.pages ?? []} />
+              </div>
+            </Show>
           </div>
         }
         analysis={analysis()}

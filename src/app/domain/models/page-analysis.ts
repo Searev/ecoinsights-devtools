@@ -1,3 +1,4 @@
+import { BestPractice } from "./best-practice";
 import { DomProfile } from "./dom-infos";
 import { Impact } from "./impact";
 import { NetworkRequest } from "./network-request";
@@ -11,4 +12,5 @@ export interface PageAnalysis {
   maxDomSize: number;
   requestSizeInKb: number;
   impact: Impact;
+  bestPractices?: BestPractice[];
 }

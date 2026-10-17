@@ -11,7 +11,7 @@ async function initBrowser() {
     return getBrowserChrome();
   }
 
-  if (browserInstance != null) {
+  if (browserInstance?.devtools != null) {
     return getBrowserFirefox();
   }
 

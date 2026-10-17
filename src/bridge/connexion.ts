@@ -15,6 +15,7 @@ export enum DevtoolsCommandType {
   STOP_LISTEN_URL_CHANGES,
   LOG_INTO_CONSOLE,
   REFRESH_PAGE,
+  CHECK_BEST_PRACTICES,
 }
 
 export interface DevtoolCommand {

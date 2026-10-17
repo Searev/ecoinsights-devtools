@@ -8,6 +8,7 @@ import {
 } from "../bridge/connexion";
 import { getPageDescription } from "./shared/get-page-description";
 import { getPageInfo } from "./shared/get-page-info";
+import { getPrintStylesheetNumber } from "./shared/rules/get-print-stylesheet-number";
 import { logInConsole } from "./shared/log-in-console";
 
 const DOM_SCAN_INTERVAL_MS = 1_000;
@@ -100,6 +101,15 @@ class Bridge {
             break;
           case DevtoolsCommandType.REFRESH_PAGE:
             this.refreshPage(message.tabId);
+            break;
+          case DevtoolsCommandType.CHECK_BEST_PRACTICES:
+            this.checkBestPractices(message.tabId).then((response) =>
+              this.sendMessageToDevTools(message.tabId, {
+                origin: "command",
+                context: message,
+                response,
+              })
+            );
             break;
           default:
             break;
@@ -274,6 +284,15 @@ class Bridge {
     );
 
     chrome.tabs.reload(tabId, { bypassCache: true });
+  }
+
+  private async checkBestPractices(tabId: number) {
+    const nbStylesheets = await getPrintStylesheetNumber(tabId);
+    return {
+      stylesheets: {
+        checked: nbStylesheets > 0,
+      },
+    };
   }
 }
 

@@ -7,11 +7,14 @@ import { getBrowser } from "../../infra/browser-factory";
 import { PageInfos } from "../models/page-infos";
 import { isNotOnSamePage } from "../../helpers/url.helper";
 import { Closeable } from "../models/closeable";
+import { BestPractice } from "../models/best-practice";
+import BestPracticeAnalyzer from "../best-practices/best-practices-analyzer";
 
 export interface WebFlowAnalysisParams {
   refreshOnStart: boolean;
   triggerNewPageOnLinkClicked: boolean;
   triggerNewPageOnFormSubmitted: boolean;
+  checkBestPractices: boolean;
 }
 
 export interface WebFlowAnalysis {
@@ -54,6 +57,7 @@ export default async function analyseWebFlow(
   let currentPageRequests: NetworkRequest[] = [];
   let currentDomProfile: DomProfile = [];
   let currentMaxDomSize = pageInfo.domSize;
+  const bestPracticeAnalyzer = new BestPracticeAnalyzer();
 
   let hasBeenStopped = false;
 
@@ -77,7 +81,8 @@ export default async function analyseWebFlow(
         currentPageRequests,
         currentDomProfile,
         currentMaxDomSize,
-        currentPageStartedAt
+        currentPageStartedAt,
+        bestPracticeAnalyzer.getBestPractices()
       ),
     ]);
 
@@ -89,6 +94,7 @@ export default async function analyseWebFlow(
     currentPageRequests = [];
     currentDomProfile = [];
     currentMaxDomSize = 0;
+    bestPracticeAnalyzer.clear();
   };
 
   const onClosePage = (newPageInfos: PageInfos | null = null) => {
@@ -101,7 +107,8 @@ export default async function analyseWebFlow(
       currentPageRequests,
       currentDomProfile,
       currentMaxDomSize,
-      currentPageStartedAt
+      currentPageStartedAt,
+      bestPracticeAnalyzer.getBestPractices()
     );
     previousAnalysis = [...previousAnalysis, currentAnalysis];
     resetCurrentAnalysis(newPageInfos);
@@ -132,6 +139,7 @@ export default async function analyseWebFlow(
 
   const domListener = browser.listenToDomProfile(
     ({ domInfos, scannedPage }) => {
+      browser.logInConsole("Page analyzed");
       if (scannedPage.url === currentPageInfos?.url) {
         if (
           currentDomProfile.length === 0 ||
@@ -159,7 +167,8 @@ export default async function analyseWebFlow(
             currentPageInfos?.url
         );
       }
-    }
+    },
+    params.checkBestPractices ? bestPracticeAnalyzer : undefined
   );
   listeners.push(domListener);
 
@@ -193,7 +202,8 @@ function createPageAnalysis(
   requests: NetworkRequest[],
   domProfile: DomProfile,
   maxDomSize: number,
-  navigatedAt: Date
+  navigatedAt: Date,
+  bestPractices: BestPractice[]
 ): PageAnalysis {
   const requestSizeInKb =
     (requests.reduce((acc, r) => acc + r.responseSize, 0) ?? 0) / 1e3;
@@ -213,5 +223,6 @@ function createPageAnalysis(
     maxDomSize,
     requestSizeInKb: round(requestSizeInKb),
     impact,
+    bestPractices,
   };
 }
