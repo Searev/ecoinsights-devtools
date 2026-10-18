@@ -4,7 +4,8 @@ import { resolve } from "path";
 // import devtools from 'solid-devtools/vite';
 
 const root = resolve(__dirname, "src");
-const outDir = resolve(__dirname, "dist");
+// Overridable: scripts/build.mjs passes build.outDir per target (dist/<target>).
+const outDir = resolve(__dirname, "dist/chrome");
 
 export default defineConfig({
   root,

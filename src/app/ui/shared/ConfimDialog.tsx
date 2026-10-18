@@ -9,7 +9,7 @@ export default function ConfirmDialog(props: {
   onClose: () => void;
   onConfirm: () => void;
 }) {
-  let ref: HTMLDialogElement;
+  let ref!: HTMLDialogElement;
 
   createEffect(() => {
     if (props.opened) {

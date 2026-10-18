@@ -1,0 +1,9 @@
+{
+  "background": { "scripts": ["scripts/background.js"] },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "bastienhub@gmail.com",
+      "strict_min_version": "109.0"
+    }
+  }
+}

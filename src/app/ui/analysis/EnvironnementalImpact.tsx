@@ -1,5 +1,5 @@
 import { Show } from "solid-js";
-import { getBrowser } from "../../infra/browser-factory";
+import { useBrowser } from "../../infra/browser-context";
 import Cloud from "../shared/icons/Cloud";
 import WaterDrop from "../shared/icons/WaterDrop";
 import { round } from "../../helpers/math.helpers";
@@ -9,6 +9,7 @@ export default function EnvironnementalImpact(props: {
   blueWaterConsumption: number;
   displayEquivalences?: boolean;
 }) {
+  const browser = useBrowser();
   const kmEquivalents = () => round(props.greenhouseGasEmissions * 3);
   const minutesOfShowerEquivalent = () => {
     const nbMinutes = props.blueWaterConsumption / 6;
@@ -26,10 +27,8 @@ export default function EnvironnementalImpact(props: {
         <button
           class="underline"
           onClick={() =>
-            getBrowser().then((browser) =>
-              browser.openUrlInNewTab(
-                "https://www.ecoindex.fr/comment-ca-marche/#lempreinte-environnementale"
-              )
+            browser.openUrlInNewTab(
+              "https://www.ecoindex.fr/comment-ca-marche/#lempreinte-environnementale"
             )
           }
         >

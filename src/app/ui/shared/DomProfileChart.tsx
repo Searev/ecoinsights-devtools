@@ -18,7 +18,7 @@ import "chartjs-adapter-date-fns";
 import { fr } from "date-fns/locale";
 
 export function DomProfileChart(props: { domProfile: DomProfile }) {
-  let chartContext: HTMLCanvasElement;
+  let chartContext!: HTMLCanvasElement;
   let chart: Chart;
 
   const getNormalizeDomProfile = (): Point[] => {

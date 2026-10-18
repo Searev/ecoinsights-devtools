@@ -3,11 +3,12 @@ import { useEcoInsightsStore } from "../../store";
 import Logo from "../shared/icons/Logo";
 import { useNavigate } from "@solidjs/router";
 import { Analysis } from "../../domain/models/analysis";
-import { getBrowser } from "../../infra/browser-factory";
+import { useBrowser } from "../../infra/browser-context";
+import { Browser } from "../../domain/models/browser";
 import { getBooleanFormValue, getFormValue } from "../../helpers/form.helpers";
 import { getUrl } from "../../helpers/url.helper";
 import Loader from "../shared/Loader/Loader";
-import manager from "../../domain/best-practices/best-practice-manager";
+import { RULES } from "../../domain/best-practices";
 
 const ANALYSIS_FORM_ID = "newAnalysisForm";
 
@@ -20,8 +21,7 @@ interface NewAnalysisFormParams {
   triggerNewPageOnFormSubmitted: string;
 }
 
-async function getInspectedTabSuggestion() {
-  const browser = await getBrowser();
+async function getInspectedTabSuggestion(browser: Browser) {
   const hasPermission = await browser.checkPermission();
 
   if (!hasPermission) {
@@ -34,7 +34,10 @@ async function getInspectedTabSuggestion() {
 const NewAnalysis: Component = () => {
   const navigate = useNavigate();
   const store = useEcoInsightsStore()!;
-  const [suggestion, { refetch }] = createResource(getInspectedTabSuggestion);
+  const browser = useBrowser();
+  const [suggestion, { refetch }] = createResource(() =>
+    getInspectedTabSuggestion(browser)
+  );
 
   function submit(event: Event) {
     event.preventDefault();
@@ -199,7 +202,7 @@ const NewAnalysis: Component = () => {
 
               <label for="checkBestPractices" class="ml-2">
                 Déclencer l'analyse des bonnes pratiques (
-                {manager.getRules().length} règles)
+                {RULES.length} règles)
               </label>
             </div>
           </section>

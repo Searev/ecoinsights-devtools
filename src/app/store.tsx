@@ -2,9 +2,12 @@
 import { createStore } from "solid-js/store";
 import { Analysis } from "./domain/models/analysis";
 import { Service } from "./domain/models/service";
-import { createContext, useContext } from "solid-js";
+import { createContext, createSignal, useContext } from "solid-js";
+import { isQuotaExceeded, parseStoredData, serializeStoredData } from "./store-codec";
 
 const STORE_KEY = "ECOINSIGHTS_PROFILER_STORE";
+
+export type SaveError = "quota" | "unknown";
 
 export class EcoInsightsStore {
   services: Service[];
@@ -21,52 +24,36 @@ export class EcoInsightsStore {
     this.currentAnalysisId = currentAnalysis;
   }
 
-  save() {
-    localStorage.setItem(
-      STORE_KEY,
-      JSON.stringify({
-        services: this.services,
-        analysis: this.analysis,
-      })
-    );
+  /** Persists the store. Returns the failure reason instead of throwing, `null` on success. */
+  save(): SaveError | null {
+    try {
+      localStorage.setItem(
+        STORE_KEY,
+        serializeStoredData(this.services, this.analysis)
+      );
+      return null;
+    } catch (e) {
+      return isQuotaExceeded(e) ? "quota" : "unknown";
+    }
   }
 
   static restore(): EcoInsightsStore {
-    const json = localStorage.getItem(STORE_KEY);
+    let json: string | null = null;
     try {
-      const decoded = JSON.parse(json ?? "");
-      const services = decoded.services ?? [];
-      const analysis =
-        decoded.analysis?.map((el: any) => ({
-          ...el,
-          date: new Date(el.date),
-          pages: el.pages.map((page: any) => ({
-            ...page,
-            navigatedAt: new Date(page.navigatedAt),
-            requests: page.requests.map((request: any) => ({
-              ...request,
-              url: new URL(request.url),
-            })),
-            domProfile: page.domProfile.map((domProfile: any) => ({
-              ...domProfile,
-              date: new Date(domProfile.date),
-            })),
-          })),
-        })) ?? [];
-
-      return new EcoInsightsStore(
-        services ?? [],
-        analysis ?? [], // Améliorer le parsing, avec la gestion des dates
-        undefined
-      );
+      json = localStorage.getItem(STORE_KEY);
     } catch {
-      return new EcoInsightsStore([], [], undefined);
+      // Storage unavailable: start empty.
     }
+    const { services, analysis } = parseStoredData(json);
+    return new EcoInsightsStore(services, analysis, undefined);
   }
 }
 
 export interface EcoInsightsStoreValue {
   store: EcoInsightsStore;
+  /** Set when the last save failed (e.g. localStorage full); cleared by the next successful save. */
+  saveError: () => SaveError | null;
+  dismissSaveError(): void;
   addService(service: Service): void;
   updateService(id: string, service: Service): void;
   removeService(id: string): void;
@@ -82,6 +69,9 @@ export function EcoInsightsStoreProvider(props: any) {
   const [store, setStore] = createStore<EcoInsightsStore>(
     EcoInsightsStore.restore()
   );
+
+  const [saveError, setSaveError] = createSignal<SaveError | null>(null);
+  const persist = () => setSaveError(store.save());
 
   const addService = (service: Service) => {
     setStore("services", (previousServices) => [...previousServices, service]);
@@ -101,20 +91,21 @@ export function EcoInsightsStoreProvider(props: any) {
 
   const addAnalysis = (analysis: Analysis) => {
     setStore("analysis", (previousAnalysis) => [...previousAnalysis, analysis]);
+    persist();
   };
 
   const saveAnalysis = (analysis: Analysis) => {
     setStore("analysis", (previousAnalysis) =>
       previousAnalysis.map((el) => (el.id === analysis.id ? analysis : el))
     );
-    store.save();
+    persist();
   };
 
   const removeAnalysis = (id: string) => {
     setStore("analysis", (previousAnalysis) =>
       previousAnalysis.filter((el) => el.id != id)
     );
-    store.save();
+    persist();
   };
 
   const setCurrentAnalysis = (id: string | undefined) => {
@@ -123,6 +114,8 @@ export function EcoInsightsStoreProvider(props: any) {
 
   const value: EcoInsightsStoreValue = {
     store,
+    saveError,
+    dismissSaveError: () => setSaveError(null),
     addService,
     updateService,
     removeService,

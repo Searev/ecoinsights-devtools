@@ -46,39 +46,42 @@ compilée avec [Vite](https://vitejs.dev/). Les scripts d'extension sont quant �
 
 Le calcul de l'EcoIndex repose sur un dépot de référence : [https://github.com/cnumr/ecoindex_reference](https://github.com/cnumr/ecoindex_reference)
 
+L'architecture détaillée et les décisions qui la justifient sont documentées dans
+[docs/architecture](./docs/architecture/ARCHITECTURE.md).
+
 Le projet est structuré comme suit :
 
-- le manifeste de l'extension est localisé dans le répertoire [src/public](./src/public/), ce qui lui permettra d'être à
-  la racine du dossier `dist` après la compilation du projet
-- les fichiers permettant d'initialiser l'application dans un nouvel onglet des outils de développements sont localisés
-  dans le répertoire [src/devtools](./src/devtools)
-- les scripts (service worker, content scripts, etc) sont localisés sans le répertoire [src/scripts](./src/scripts)
-- l'application SolidJS qui tournera dans les outils de développement est localisée dans le répertoire [src/app](./src/app)
+- [src/manifest](./src/manifest) : manifeste commun (`base.json`) et surcharges propres à Chrome et à Firefox, fusionnés à la compilation
+- [src/devtools](./src/devtools) : enregistrement de l'onglet « EcoInsights » dans les outils de développement
+- [src/app](./src/app) : l'application SolidJS affichée dans cet onglet
+- [src/background](./src/background) : l'« agent de page », script de fond qui agit sur l'onglet inspecté (scripts injectés, rechargement, permissions)
+- [src/content](./src/content) : la « sonde », script de contenu injecté à la demande pour détecter les clics sur les liens et les soumissions de formulaires
+- [src/shared/protocol.ts](./src/shared/protocol.ts) : le protocole typé échangé entre l'onglet DevTools et l'agent de page
 
 L'application en elle-même est décomposée en différentes couches :
 
-- le répertoire [ui](src/app/ui) contient les éléments visuels principaux de l'application (page, composants...), écrits en tsx
-- le répertoire [domain](src/app/domain) décrit les interfaces utilisées dans l'application, ainsi que les fonctions métier
-  permettant de calculer l'impact d'une page
-- le répertoire [infra](src/app/infra) contient tout le code spécifique à la plateforme d'exécution (Chrome ou Firefox), comme les extensions
-  `chrome.\*`
+- [ui](src/app/ui) : pages et composants SolidJS ; ils obtiennent le navigateur via `useBrowser()`
+- [domain](src/app/domain) : modèles, cas d'usage (enregistrement d'un parcours, calcul de l'EcoIndex, export CSV) et
+  [règles de bonnes pratiques](src/app/domain/best-practices). Cette couche n'utilise jamais `chrome.*` ni `infra` (vérifié par ESLint)
+- [infra](src/app/infra) : implémentations de l'interface `Browser` : `ExtensionBrowser` (Chrome et Firefox) et `MockBrowser` (développement et tests)
 
-### Différences entre les versions Firefox et Chrome
+### Chrome et Firefox
 
-Bien que les deux versions des navigateurs supportent le [Manifest V3](https://developer.chrome.com/docs/extensions/develop/migrate/what-is-mv3?hl=fr), leur implémentation diffère quelque peu. Alors que Chrome permet aux scripts s'exécutant dans les DevTools
-d'accéder aux APIs `chrome.scripting`, cela n'est pas le cas sur Firefox. Nous avons donc du adopter nos choix d'architecture
-différent sur chaque plateforme :
+Les deux navigateurs partagent exactement le même code. Les DevTools de Firefox ne pouvant pas utiliser `scripting` ni `tabs`,
+tout accès à l'onglet inspecté passe, sur les deux navigateurs, par l'agent de page. Celui-ci est déclaré comme
+`service_worker` sur Chrome et comme `background.scripts` sur Firefox. Seul le manifeste diffère.
 
-- Sur Chrome, la classe [BrowserChrome](./src/app/infra/browser-chrome.ts) intéragit directement avec le navigateur en y
-  injectant les scripts et les fonctions nécessaires.
-- Sur Firefox, la classe [BrowserFirefox](./src/app/infra/browser-firefox.ts) interagit avec un
-  [script de fond](./src/scripts/background.ts), qui fait passe-plat entre DevTools et scripts de contenu. Ces derniers sont
-  d'ailleurs directement injectés depuis le manifeste.
+En développement (`npm run dev`), hors extension, un `MockBrowser` simule un navigateur.
 
-Pendant le temps de développement, une classe simulant le fonctionnement d'un navigateur est utilisée,
-[BrowserMock](./src/app/infra/browser-mock.ts).
+### Ajouter une bonne pratique
 
-Au runtime, l'application décide de quelle implémentation utiliser parmis ces trois disponibles.
+1. Créez un fichier `src/app/domain/best-practices/rules/<nom>.rule.ts` exportant un `BestPracticeRule` :
+   un `collect()` optionnel, exécuté dans la page (autonome : ni import ni variable externe), et un `evaluate()` pur,
+   qui reçoit les données collectées et les requêtes réseau de la page.
+2. Ajoutez la règle au tableau `RULES` de [index.ts](src/app/domain/best-practices/index.ts).
+3. Ajoutez un fichier de test `<nom>.rule.test.ts`. Le test du registre vérifie automatiquement que `collect` est autonome.
+
+Aucune autre modification n'est nécessaire : la règle fonctionne sur Chrome et Firefox.
 
 ### Dépendances
 
@@ -96,18 +99,35 @@ L'application se lancera alors en mode développement ; vous pourrez y accéder 
 
 ### Compilation des sources
 
-Vous pouvez compiler le projet avec la ligne de commande `npm run build`.
+Vous pouvez compiler le projet avec la ligne de commande `npm run build`, qui produit une version par navigateur :
 
-Les sources seront alors disponibles dans le répertoire `dist`, que vous pourrez directement importer comme extension non
-empaquetée dans votre navigateur.
+- `dist/chrome` et `dist/chrome.zip`
+- `dist/firefox` et `dist/firefox.zip`
 
-Par défaut, les sources compilées contiennent les manifestes utiles à la fois pour Firefox et Chrome. Vous pouvez cependant
-compiler une version du projet spécifique pour l'un de ces deux navigateurs avec la ligne de commande suivante :
+Chaque dossier peut être importé directement comme extension non empaquetée : `chrome://extensions` en mode
+développeur sur Chrome, `about:debugging` → « Charger un module temporaire » → `dist/firefox/manifest.json` sur Firefox.
+
+Pour ne compiler qu'un seul navigateur :
 
 ```
 $ npm run build:firefox
 $ npm run build:chrome
 ```
+
+`npm run lint:firefox` valide la version Firefox avec `web-ext lint`.
+
+### Tests et qualité
+
+```
+$ npm test            # tous les tests (Vitest)
+$ npx vitest run src/app/domain/best-practices   # un sous-ensemble
+$ npm run typecheck   # vérification TypeScript
+$ npm run lint        # ESLint
+```
+
+Les tests sont placés à côté du code (`*.test.ts`). Le code exécuté dans la page est testé avec jsdom
+(`// @vitest-environment jsdom`). Les dépendances au navigateur sont injectées (faux objets `chrome`, `MockBrowser`)
+plutôt que simulées avec `vi.mock`.
 
 ## Vie privée
 

@@ -18,5 +18,27 @@
     "no-unused-vars": "off",
     "@typescript-eslint/no-unused-vars": ["error"],
     "@typescript-eslint/no-explicit-any": "off"
-  }
+  },
+  "overrides": [
+    {
+      "files": ["src/app/domain/**/*.{ts,tsx}"],
+      "excludedFiles": ["**/*.test.ts"],
+      "rules": {
+        "no-restricted-globals": [
+          "error",
+          { "name": "chrome", "message": "Domain code must not use browser APIs; go through the Browser interface." },
+          { "name": "browser", "message": "Domain code must not use browser APIs; go through the Browser interface." }
+        ],
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              { "group": ["**/infra/**"], "message": "Domain must not import infra." },
+              { "group": ["**/ui/**"], "message": "Domain must not import ui." }
+            ]
+          }
+        ]
+      }
+    }
+  ]
 }
