@@ -12,5 +12,7 @@
     "types": ["vite/client", "chrome"],
     "noEmit": true,
     "isolatedModules": true
-  }
+  },
+  "include": ["src", "vite.config.ts", "vitest.config.ts"],
+  "files": ["node_modules/@jsquash/jpeg/emscripten-types.d.ts"]
 }

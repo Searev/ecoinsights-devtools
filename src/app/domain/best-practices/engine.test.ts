@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { collectableRuleIds, evaluateRules } from "./engine";
+import { EstimationJob, UNAVAILABLE_ESTIMATES } from "../models/image-estimation";
+import { collectableRuleIds, evaluateRules, planEstimations } from "./engine";
 import { BestPracticeRule } from "./rule";
 
 function rule(
@@ -138,5 +139,84 @@ describe("collectableRuleIds", () => {
     expect(
       collectableRuleIds([rule("a", { collect: () => 1 }), rule("b")])
     ).toEqual(["a"]);
+  });
+});
+
+const job = (url: string, kind: "convert" | "resize" = "convert"): EstimationJob =>
+  kind === "convert"
+    ? { url, declaredType: "image/png", transform: { kind } }
+    : { url, declaredType: "image/png", transform: { kind, width: 10, height: 10 } };
+
+describe("evaluateRules with estimates", () => {
+  it("defaults estimates to UNAVAILABLE_ESTIMATES", () => {
+    let seen: any;
+    evaluateRules(
+      [rule("a", { evaluate: (ctx) => ((seen = ctx.estimates), { compliance: "A", detail: "" }) })],
+      input
+    );
+    expect(seen).toBe(UNAVAILABLE_ESTIMATES);
+  });
+
+  it("passes the given estimates to evaluate", () => {
+    const estimates = () => ({ status: "pending" as const });
+    let seen: any;
+    evaluateRules(
+      [rule("a", { evaluate: (ctx) => ((seen = ctx.estimates), { compliance: "A", detail: "" }) })],
+      { ...input, estimates }
+    );
+    expect(seen).toBe(estimates);
+  });
+
+  it("copies progress and images, and keeps an undefined compliance without error", () => {
+    const images = [{ url: "u", originalBytes: 0, state: "pending" as const, offender: false, declaredType: "" }];
+    const res = evaluateRules(
+      [rule("a", { evaluate: () => ({ detail: "wait", progress: { done: 0, total: 1 }, images }) })],
+      input
+    );
+    expect(res[0].compliance).toBeUndefined();
+    expect(res[0].error).toBeUndefined();
+    expect(res[0].progress).toEqual({ done: 0, total: 1 });
+    expect(res[0].images).toEqual(images);
+  });
+});
+
+describe("planEstimations", () => {
+  it("collects the jobs of every rule, deduplicated by estimation key", () => {
+    const rules = [
+      rule("a", { estimations: () => [job("https://x.test/1.png"), job("https://x.test/2.png")] }),
+      rule("b", { estimations: () => [job("https://x.test/1.png"), job("https://x.test/1.png", "resize")] }),
+      rule("c"),
+    ];
+    const jobs = planEstimations(rules, input);
+    expect(jobs.map((j) => [j.url, j.transform.kind])).toEqual([
+      ["https://x.test/1.png", "convert"],
+      ["https://x.test/2.png", "convert"],
+      ["https://x.test/1.png", "resize"],
+    ]);
+  });
+
+  it("ignores a rule whose estimations throws", () => {
+    const rules = [
+      rule("bad", {
+        estimations: () => {
+          throw new Error("x");
+        },
+      }),
+      rule("good", { estimations: () => [job("https://x.test/1.png")] }),
+    ];
+    expect(planEstimations(rules, input)).toHaveLength(1);
+  });
+
+  it("resolves the page data like evaluateRules", () => {
+    const seen: any[] = [];
+    const rules = [
+      rule("a", { estimations: (ctx) => ((seen.push(ctx.page, ctx.url)), []) }),
+      rule("b", { estimations: (ctx) => ((seen.push(ctx.page)), []) }),
+    ];
+    planEstimations(rules, {
+      ...input,
+      pageData: { a: { ok: true, data: "A" }, b: { ok: false, error: "e" } },
+    });
+    expect(seen).toEqual(["A", "https://example.com", undefined]);
   });
 });

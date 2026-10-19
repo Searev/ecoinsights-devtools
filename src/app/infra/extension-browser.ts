@@ -16,7 +16,15 @@ import { NavigationEvent } from "../domain/models/navigation-event";
 import { NetworkRequest } from "../domain/models/network-request";
 import { PageDescription } from "../domain/models/page-description";
 import { PageInfos } from "../domain/models/page-infos";
+import { normaliseImageUrl } from "../domain/image-estimation/image-requests";
 import { toNetworkRequest } from "./har";
+
+/** Number of most recent URLs whose HAR entry is kept to read response bodies. */
+const MAX_REMEMBERED_ENTRIES = 1000;
+
+type EntryWithContent = HARFormatEntry & {
+  getContent?: (callback?: (content: string, encoding: string) => void) => unknown;
+};
 
 /** Minimal subset of `chrome.runtime.Port` used by the adapter. */
 export interface PortLike {
@@ -54,6 +62,8 @@ export class ExtensionBrowser implements Browser {
   private port: PortLike | null = null;
   private pending = new Map<string, Pending>();
   private navigationListeners: Array<(event: NavigationEvent) => void> = [];
+  /** Latest HAR entry per normalised URL, in insertion order (oldest first). */
+  private entries = new Map<string, EntryWithContent>();
 
   constructor(private deps: ExtensionBrowserDeps) {}
 
@@ -90,6 +100,7 @@ export class ExtensionBrowser implements Browser {
         }
       }
     );
+    (har?.entries ?? []).forEach((entry) => this.remember(entry));
     return (har?.entries ?? [])
       .map(toNetworkRequest)
       .filter((r): r is NetworkRequest => r !== null);
@@ -97,6 +108,7 @@ export class ExtensionBrowser implements Browser {
 
   onNetworkRequest(listener: (request: NetworkRequest) => void): Closeable {
     const handler = (entry: HARFormatEntry) => {
+      this.remember(entry);
       const request = toNetworkRequest(entry);
       if (request) listener(request);
     };
@@ -105,6 +117,46 @@ export class ExtensionBrowser implements Browser {
       close: () =>
         this.deps.devtools.network.onRequestFinished.removeListener(handler),
     };
+  }
+
+  /**
+   * Response body of a request seen by DevTools (ARCH-DECISION-010), or null when unknown or
+   * unreadable. Chrome calls back with `(content, encoding)`, Firefox returns `[content, mimeType]`.
+   */
+  getResourceContent(url: string): Promise<{ content: string; encoding?: string } | null> {
+    const entry = this.entries.get(normaliseImageUrl(url));
+    if (!entry?.getContent) return Promise.resolve(null);
+    const getContent = entry.getContent.bind(entry);
+    return new Promise((resolve) => {
+      const done = (content: unknown, encoding?: unknown) => {
+        if (typeof content !== "string" || content === "") return resolve(null);
+        resolve(
+          typeof encoding === "string" && encoding !== "" ? { content, encoding } : { content }
+        );
+      };
+      try {
+        const returned = getContent((content, encoding) => done(content, encoding));
+        if (isThenable(returned)) {
+          returned.then(
+            (value) => (Array.isArray(value) ? done(value[0]) : done(undefined)),
+            () => resolve(null)
+          );
+        }
+      } catch {
+        resolve(null);
+      }
+    });
+  }
+
+  private remember(entry: EntryWithContent) {
+    if (typeof entry?.getContent !== "function" || typeof entry.request?.url !== "string") return;
+    const key = normaliseImageUrl(entry.request.url);
+    this.entries.delete(key); // refresh insertion order
+    this.entries.set(key, entry);
+    if (this.entries.size > MAX_REMEMBERED_ENTRIES) {
+      const oldest = this.entries.keys().next().value as string;
+      this.entries.delete(oldest);
+    }
   }
 
   onNavigation(listener: (event: NavigationEvent) => void): Closeable {

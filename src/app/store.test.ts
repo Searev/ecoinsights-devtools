@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { exportAnalysisToCsv } from "./domain/use-case/export-csv";
 import {
   isQuotaExceeded,
   parseStoredData,
@@ -68,6 +69,69 @@ describe("parseStoredData", () => {
     const parsed = parseStoredData(legacy);
     const again = parseStoredData(serializeStoredData(parsed.services, parsed.analysis));
     expect(again).toEqual(parsed);
+  });
+});
+
+describe("image estimation persistence", () => {
+  const withImages = JSON.parse(legacy);
+  withImages.analysis[0].pages[0].imageGain = {
+    bytes: 204000,
+    pendingCount: 0,
+    notEvaluatedCount: 1,
+    fallbackCount: 0,
+  };
+  withImages.analysis[0].pages[0].bestPractices = [
+    {
+      id: "DontResizeImagesInBrowser",
+      name: "Resize",
+      category: "images",
+      detail: "1 image(s) surdimensionnée(s)",
+      images: [
+        {
+          url: "https://x.org/a.jpg",
+          originalBytes: 500000,
+          state: "estimated",
+          estimatedBytes: 100000,
+          gainBytes: 400000,
+          offender: true,
+          declaredType: "image/jpeg",
+        },
+      ],
+    },
+  ];
+
+  it("loads legacy analyses unchanged and exports them to CSV with an empty gain cell", () => {
+    const { analysis } = parseStoredData(legacy);
+    const page = analysis[0].pages[0];
+    expect(page.imageGain).toBeUndefined();
+    expect(page.bestPractices![0]).not.toHaveProperty("images");
+    expect(page.bestPractices![0]).not.toHaveProperty("progress");
+    const rows = exportAnalysisToCsv(analysis[0]).split("\n");
+    expect(rows).toHaveLength(3);
+    expect(rows[1].endsWith(";")).toBe(true);
+  });
+
+  it("round-trips imageGain, findings and an undefined compliance", () => {
+    const parsed = parseStoredData(JSON.stringify(withImages));
+    const page = parsed.analysis[0].pages[0];
+    expect(page.imageGain?.bytes).toBe(204000);
+    expect(page.bestPractices![0].images![0].gainBytes).toBe(400000);
+    expect(page.bestPractices![0].compliance).toBeUndefined();
+
+    const again = parseStoredData(serializeStoredData(parsed.services, parsed.analysis));
+    expect(again).toEqual(parsed);
+    expect(exportAnalysisToCsv(again.analysis[0]).split("\n")[1].endsWith(";204.0")).toBe(true);
+  });
+
+  it("drops a stray progress and keeps the stored compliance", () => {
+    const stray = JSON.parse(JSON.stringify(withImages));
+    const bp = stray.analysis[0].pages[0].bestPractices[0];
+    bp.progress = { done: 0, total: 1 };
+    bp.compliance = "B";
+    const decoded = parseStoredData(JSON.stringify(stray)).analysis[0].pages[0]
+      .bestPractices![0];
+    expect(decoded).not.toHaveProperty("progress");
+    expect(decoded.compliance).toBe("B");
   });
 });
 

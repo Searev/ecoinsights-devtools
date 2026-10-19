@@ -8,6 +8,7 @@ import {
   onMount,
 } from "solid-js";
 import { useBrowser } from "../../infra/browser-context";
+import { useImageEstimator } from "../../infra/estimator-context";
 import { describeStartError } from "./start-error";
 import Loader from "../shared/Loader/Loader";
 import { useEcoInsightsStore } from "../../store";
@@ -27,6 +28,7 @@ const PendingAnalysis: Component = () => {
   const [searchParams] = useSearchParams();
   const store = useEcoInsightsStore();
   const browser = useBrowser();
+  const imageEstimator = useImageEstimator();
   const analysis = store!.store.analysis.find((el) => el.id === params.id);
 
   const [pagesAnalysed, setAnalysis] = createSignal<PageAnalysis[]>([]);
@@ -46,7 +48,12 @@ const PendingAnalysis: Component = () => {
       checkBestPractices: searchParams["checkBestPractices"] === "true",
     };
     setState("starting");
-    analyseWebFlow(browser, flowParams, (pages) => setAnalysis(pages)).then(
+    analyseWebFlow(
+      browser,
+      flowParams,
+      (pages) => setAnalysis(pages),
+      { imageEstimator }
+    ).then(
       (flow) => {
         if (disposed) {
           flow.stopAnalysis();
@@ -113,13 +120,15 @@ const PendingAnalysis: Component = () => {
               <button
                 onClick={() => {
                   const callbacks = webFlowAnalysis();
-                  if (callbacks != null) {
-                    callbacks.stopAnalysis();
-                  }
+                  // stopAnalysis() settles pending estimations and returns the final pages.
+                  const finalPages =
+                    callbacks != null
+                      ? callbacks.stopAnalysis()
+                      : pagesAnalysed() ?? [];
                   if (store != null && analysis != null) {
                     store!.saveAnalysis({
                       ...analysis,
-                      pages: pagesAnalysed() ?? [],
+                      pages: finalPages,
                     });
                     navigate(`/analysis/${analysis.id}`);
                   }

@@ -5,8 +5,17 @@ import { RULES } from "./index";
 const CATEGORIES = ["content", "images", "fonts", "network", "css", "js"];
 
 describe("RULES registry", () => {
-  it("registers the three rules in order", () => {
+  it("registers the four rules in order", () => {
     expect(RULES.map((r) => r.id)).toEqual([
+      "PrintStyleSheet",
+      "DontResizeImagesInBrowser",
+      "UseOptimizedImageFormats",
+      "UseStandardFonts",
+    ]);
+  });
+
+  it("only the resize and print rules need a collector", () => {
+    expect(RULES.filter((r) => r.collect).map((r) => r.id)).toEqual([
       "PrintStyleSheet",
       "DontResizeImagesInBrowser",
       "UseStandardFonts",

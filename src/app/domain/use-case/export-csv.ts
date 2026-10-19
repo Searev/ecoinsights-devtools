@@ -40,6 +40,15 @@ const FIELDS_TO_EXPORT: FieldToExport[] = [
     columnName: "Note",
     getter: ({ impact }) => getEcoIndexGrade(impact.ecoindex)?.grade ?? "/",
   },
+  {
+    columnName: "Gain images estimé (ko)",
+    getter: ({ imageGain }) =>
+      imageGain === undefined
+        ? ""
+        : `${(imageGain.bytes / 1000).toFixed(1)}${
+            imageGain.pendingCount > 0 ? " (partiel)" : ""
+          }`,
+  },
 ];
 
 export function exportAnalysisToCsv(analysis: Analysis): string {

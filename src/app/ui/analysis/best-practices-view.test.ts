@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   aggregateBestPractices,
+  describeProgress,
   groupByCategory,
   worstCompliance,
 } from "./best-practices-view";
@@ -51,5 +52,29 @@ describe("groupByCategory", () => {
     const groups = groupByCategory([mk("a", "js"), mk("b", "content"), mk("c", "js")]);
     expect(groups.map((g) => g.category)).toEqual(["content", "js"]);
     expect(groups[1].items.map((i) => i.id)).toEqual(["a", "c"]);
+  });
+});
+
+describe("estimation progress aggregation", () => {
+  const base = { id: "r", name: "R", category: "images" as const, detail: "d" };
+
+  it("sums progress across pages and drops the grade while estimating", () => {
+    const result = aggregateBestPractices([
+      page("P1", [{ ...base, compliance: "C", offenders: ["u1"] }]),
+      page("P2", [{ ...base, compliance: undefined, progress: { done: 2, total: 5 } }]),
+      page("P3", [{ ...base, compliance: undefined, progress: { done: 1, total: 3 } }]),
+    ]);
+    expect(result[0].progress).toEqual({ done: 3, total: 8 });
+    expect(result[0].compliance).toBeUndefined();
+  });
+
+  it("has no progress when no page is estimating", () => {
+    const result = aggregateBestPractices([page("P1", [{ ...base, compliance: "B" }])]);
+    expect(result[0].progress).toBeUndefined();
+    expect(result[0].compliance).toBe("B");
+  });
+
+  it("describes the progress in French", () => {
+    expect(describeProgress({ done: 2, total: 5 })).toBe("Estimation en cours… (2/5 images)");
   });
 });

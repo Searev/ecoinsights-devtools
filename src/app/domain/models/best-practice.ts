@@ -1,3 +1,5 @@
+import { EstimationProgress, ImageFinding } from "./image-estimation";
+
 export type BestPracticeId = string;
 
 /** A is compliant, C is not compliant. Compared as strings: the worst grade is the greatest. */
@@ -23,4 +25,11 @@ export interface BestPractice {
   offenders?: string[];
   /** Set when collection or evaluation failed. */
   error?: string;
+  /**
+   * Present while image estimations are pending ("Estimation en cours… (done/total images)").
+   * `compliance` is then undefined. Never present in a saved analysis (stop settles every job).
+   */
+  progress?: EstimationProgress;
+  /** Image rules only (US-001, US-002): per-image findings, used by the US-003 page gain. */
+  images?: ImageFinding[];
 }

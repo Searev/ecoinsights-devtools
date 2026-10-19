@@ -8,6 +8,10 @@ import EnvironnementalImpact from "./EnvironnementalImpact";
 import Clear from "../shared/icons/Clear";
 import { DomProfileChart } from "../shared/DomProfileChart";
 import { BestPractices } from "./BestPractices";
+import {
+  describePageImageGain,
+  pageTransferBytes,
+} from "./image-gain-view";
 
 export default function AnalysedPage(props: {
   analysis: PageAnalysis;
@@ -47,6 +51,18 @@ export default function AnalysedPage(props: {
           greenhouseGasEmissions={props.analysis.impact.greenhouseGasEmissions}
           blueWaterConsumption={props.analysis.impact.blueWaterConsumption}
         />
+        <p
+          class="mt-2"
+          role={props.analysis.imageGain?.pendingCount ? "status" : undefined}
+        >
+          <span class="font-semibold">Gain estimé (images)&nbsp;:&nbsp;</span>
+          <span>
+            {describePageImageGain(
+              props.analysis.imageGain,
+              pageTransferBytes(props.analysis)
+            )}
+          </span>
+        </p>
       </div>
       <Show when={(props.analysis?.bestPractices?.length ?? 0) > 0}>
         <div class="px-3 pb-3 bg-surface border-t-2 border-border">

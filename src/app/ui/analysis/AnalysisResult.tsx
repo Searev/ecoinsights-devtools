@@ -5,6 +5,21 @@ import EcoIndexBadge from "../shared/EcoIndexBadge";
 import AnalysedPage from "./AnalysedPage";
 import { round } from "../../helpers/math.helpers";
 import Add from "../shared/icons/Add";
+import {
+  describeAnalysisImageGain,
+  sumAnalysisImageGain,
+} from "./image-gain-view";
+
+/** "Gain estimé sur le parcours" line, shared with the saved analysis summary. */
+export function AnalysisImageGainLine(props: { pagesAnalysed: PageAnalysis[] }) {
+  const total = () => sumAnalysisImageGain(props.pagesAnalysed);
+  return (
+    <span role={total()?.pending ? "status" : undefined}>
+      Gain estimé sur le parcours&nbsp;:&nbsp;
+      {describeAnalysisImageGain(total())}
+    </span>
+  );
+}
 
 export default function AnalysisResult(props: {
   header: JSX.Element;
@@ -175,6 +190,8 @@ export default function AnalysisResult(props: {
           <span>{totalGreenhouseGasEmissions()}g CO2e</span>
           <span class="mx-1 h-full border-r border-border" />
           <span>{consommationEauBleue()}cL d'eau bleue</span>
+          <span class="mx-1 h-full border-r border-border" />
+          <AnalysisImageGainLine pagesAnalysed={props.pagesAnalysed} />
           <span class="flex-1" />
           <span>
             EcoIndex moyen{" "}

@@ -10,6 +10,7 @@ import {
   AggregatedBestPractice,
   CATEGORY_LABELS,
   aggregateBestPractices,
+  describeProgress,
   groupByCategory,
 } from "./best-practices-view";
 
@@ -59,7 +60,9 @@ export function BestPractices(props: { pagesAnalysed: PageAnalysis[] }) {
   const groups = () => {
     const all = aggregateBestPractices(props.pagesAnalysed);
     return groupByCategory(
-      onlyShowIgnoredPractices() ? all.filter((el) => el.compliance !== "A") : all
+      onlyShowIgnoredPractices() ? all.filter(
+            (el) => el.compliance !== "A" || el.progress !== undefined
+          ) : all
     );
   };
 
@@ -74,7 +77,22 @@ export function BestPractices(props: { pagesAnalysed: PageAnalysis[] }) {
           aria-controls={panelId()}
           onClick={() => toggle(itemProps.item.id)}
         >
-          <ComplianceBadge compliance={itemProps.item.compliance} />
+          <Show
+            when={itemProps.item.progress}
+            fallback={<ComplianceBadge compliance={itemProps.item.compliance} />}
+          >
+            {(progress) => (
+              <span class="flex flex-row items-center mr-2">
+                <span
+                  class="w-3 h-3 rounded mr-1 bg-gray-500"
+                  aria-hidden="true"
+                />
+                <span role="status" class="text-xs">
+                  {describeProgress(progress())}
+                </span>
+              </span>
+            )}
+          </Show>
           <span>{itemProps.item.name}</span>
           <div class="flex-1" />
           <span aria-hidden="true">

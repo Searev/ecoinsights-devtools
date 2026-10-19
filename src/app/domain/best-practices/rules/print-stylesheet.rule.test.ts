@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it } from "vitest";
+import { UNAVAILABLE_ESTIMATES } from "../../models/image-estimation";
 import { printStylesheetRule } from "./print-stylesheet.rule";
 
 describe("printStylesheetRule metadata", () => {
@@ -11,7 +12,7 @@ describe("printStylesheetRule metadata", () => {
 
 describe("printStylesheetRule.evaluate", () => {
   const ev = (page: number | undefined) =>
-    printStylesheetRule.evaluate({ url: "https://x.test", requests: [], page });
+    printStylesheetRule.evaluate({ url: "https://x.test", requests: [], page, estimates: UNAVAILABLE_ESTIMATES });
 
   it.each([
     [1, "A"],

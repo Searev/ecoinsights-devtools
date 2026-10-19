@@ -4,6 +4,7 @@ import {
   BestPracticeCompliance,
   BestPracticeId,
 } from "../../domain/models/best-practice";
+import { EstimationProgress } from "../../domain/models/image-estimation";
 import { PageAnalysis } from "../../domain/models/page-analysis";
 
 export interface AggregatedBestPractice {
@@ -17,6 +18,12 @@ export interface AggregatedBestPractice {
   pages: string[];
   offenders: string[];
   error?: string;
+  /** Summed over the pages still estimating; the grade is undefined while it is set. */
+  progress?: EstimationProgress;
+}
+
+export function describeProgress(progress: EstimationProgress): string {
+  return `Estimation en cours… (${progress.done}/${progress.total} images)`;
 }
 
 export const CATEGORY_ORDER: BestPracticeCategory[] = [
@@ -70,10 +77,21 @@ export function aggregateBestPractices(
       for (const offender of bp.offenders ?? []) {
         if (!entry.offenders.includes(offender)) entry.offenders.push(offender);
       }
+      if (bp.progress !== undefined) {
+        entry.progress = {
+          done: (entry.progress?.done ?? 0) + bp.progress.done,
+          total: (entry.progress?.total ?? 0) + bp.progress.total,
+        };
+      }
       map.set(bp.id, entry);
     }
   }
-  return Array.from(map.values());
+  const result = Array.from(map.values());
+  // No grade while estimating (US-001 S8).
+  for (const entry of result) {
+    if (entry.progress !== undefined) entry.compliance = undefined;
+  }
+  return result;
 }
 
 function createEntry(bp: BestPractice): AggregatedBestPractice {

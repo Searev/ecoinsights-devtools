@@ -3,8 +3,9 @@ import { render } from "solid-js/web";
 
 import "./index.css";
 import App from "./App";
-import { getBrowser } from "./infra/browser-factory";
+import { getBrowser, getImageEstimator } from "./infra/browser-factory";
 import { BrowserProvider } from "./infra/browser-context";
+import { ImageEstimatorProvider } from "./infra/estimator-context";
 
 const root = document.getElementById("root");
 
@@ -14,11 +15,13 @@ if (import.meta.env.DEV && !(root instanceof HTMLElement)) {
   );
 }
 
-getBrowser().then((browser) =>
+Promise.all([getBrowser(), getImageEstimator()]).then(([browser, estimator]) =>
   render(
     () => (
       <BrowserProvider browser={browser}>
-        <App />
+        <ImageEstimatorProvider estimator={estimator}>
+          <App />
+        </ImageEstimatorProvider>
       </BrowserProvider>
     ),
     root!

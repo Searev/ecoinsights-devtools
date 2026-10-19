@@ -29,10 +29,12 @@ export function parseStoredData(json: string | null): StoredData {
           };
           if (Array.isArray(page.bestPractices)) {
             // Legacy entries (before the rule engine) have no category.
-            decodedPage.bestPractices = page.bestPractices.map((bp: any) => ({
-              ...bp,
-              category: bp.category ?? "content",
-            }));
+            decodedPage.bestPractices = page.bestPractices.map((bp: any) => {
+              // Saved analyses are final: a stored estimation progress is stale, drop it.
+              const decodedBp = { ...bp, category: bp.category ?? "content" };
+              delete decodedBp.progress;
+              return decodedBp;
+            });
           }
           return decodedPage;
         }),

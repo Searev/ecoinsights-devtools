@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from "vitest";
+import { UNAVAILABLE_ESTIMATES } from "../../models/image-estimation";
 import { NetworkRequest } from "../../models/network-request";
 import { standardFontsRule } from "./standard-fonts.rule";
 
@@ -15,7 +16,7 @@ const req = (url: string, o: Partial<NetworkRequest> = {}): NetworkRequest => ({
 const font = (name: string, size: number, o: Partial<NetworkRequest> = {}) =>
   req(`https://x.test/${name}`, { transferSize: size, ...o });
 const ev = (requests: NetworkRequest[], page?: { families: string[] }) =>
-  standardFontsRule.evaluate({ url: "https://x.test", requests, page });
+  standardFontsRule.evaluate({ url: "https://x.test", requests, page, estimates: UNAVAILABLE_ESTIMATES });
 
 describe("standardFontsRule metadata", () => {
   it("has the expected id and category", () => {

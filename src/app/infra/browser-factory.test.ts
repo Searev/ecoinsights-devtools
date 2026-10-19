@@ -13,3 +13,16 @@ describe("getBrowser", () => {
     expect(await getBrowser()).toBe(first);
   });
 });
+
+describe("getImageEstimator", () => {
+  it("returns a memoised FakeImageEstimator outside the extension", async () => {
+    // Runs in a fresh module graph so that no ExtensionBrowser was memoised by another test.
+    vi.resetModules();
+    vi.stubGlobal("chrome", undefined);
+    const factory = await import("./browser-factory");
+    const { FakeImageEstimator: Fake } = await import("./image-estimator/fake-image-estimator");
+    const first = await factory.getImageEstimator();
+    expect(first).toBeInstanceOf(Fake);
+    expect(await factory.getImageEstimator()).toBe(first);
+  });
+});

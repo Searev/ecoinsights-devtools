@@ -1,6 +1,6 @@
 # ARCH-DECISION-004: Best practices are stateless rules (`collect` + pure `evaluate`)
 
-- **Status:** Accepted (REFACTOR-001)
+- **Status:** Accepted (REFACTOR-001), **amended by [ARCH-DECISION-007](ARCH-DECISION-007-async-image-estimation.md)** (US-001): a rule may also declare pure `estimations()` jobs, and `evaluate` reads their results through `RuleContext.estimates`. `evaluate` stays pure and synchronous.
 - **Supersedes:** `BestPraticesManager`, `BestPracticesAnalyzer`, the `*Analyzer` classes, `src/scripts/shared/rules/*`
 
 ## Context

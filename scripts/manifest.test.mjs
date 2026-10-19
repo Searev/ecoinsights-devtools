@@ -45,4 +45,14 @@ describe("merged manifests", () => {
       expect(existsSync(resolve(root, "src/public", icon))).toBe(true);
     }
   });
+
+  it.each([["chrome", chrome], ["firefox", firefox]])("%s allows WebAssembly in extension pages", (_n, m) => {
+    expect(m.content_security_policy).toEqual({
+      extension_pages: "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'",
+    });
+  });
+
+  it("chrome requires Chrome 103 (wasm-unsafe-eval)", () => {
+    expect(chrome.minimum_chrome_version).toBe("103");
+  });
 });

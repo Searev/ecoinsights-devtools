@@ -321,4 +321,86 @@ describe("ExtensionBrowser RPC", () => {
       expect(devtools.finishedListeners).toHaveLength(0);
     });
   });
+  describe("getResourceContent", () => {
+    type Getter = (cb?: (content: string, encoding: string) => void) => unknown;
+    const withContent = (url: string, getContent: Getter) => ({ ...harEntry(url), getContent });
+
+    it("resolves with the Chrome callback form for an entry seen by onNetworkRequest", async () => {
+      const { devtools, browser } = setup();
+      browser.onNetworkRequest(() => {});
+      const entry = withContent("https://a.org/i.png#frag", (cb) => cb?.("QUJD", "base64"));
+      devtools.finishedListeners.forEach((l) => l(entry));
+      await expect(browser.getResourceContent("https://a.org/i.png")).resolves.toEqual({
+        content: "QUJD",
+        encoding: "base64",
+      });
+    });
+
+    it("resolves with the Firefox promise form ([content, mimeType], no encoding)", async () => {
+      const { devtools, browser } = setup();
+      browser.onNetworkRequest(() => {});
+      const entry = withContent("https://a.org/i.png", () => Promise.resolve(["QUJD", "image/png"]));
+      devtools.finishedListeners.forEach((l) => l(entry));
+      await expect(browser.getResourceContent("https://a.org/i.png")).resolves.toEqual({
+        content: "QUJD",
+      });
+    });
+
+    it("resolves null for an unknown URL", async () => {
+      const { browser } = setup();
+      await expect(browser.getResourceContent("https://a.org/none.png")).resolves.toBeNull();
+    });
+
+    it("resolves null when getContent throws, rejects or yields nothing", async () => {
+      const { devtools, browser } = setup();
+      browser.onNetworkRequest(() => {});
+      const fire = (e: unknown) => devtools.finishedListeners.forEach((l) => l(e));
+      fire(withContent("https://a.org/throw.png", () => { throw new Error("boom"); }));
+      fire(withContent("https://a.org/reject.png", () => Promise.reject(new Error("no"))));
+      fire(withContent("https://a.org/empty.png", (cb) => cb?.(null as any, "")));
+      await expect(browser.getResourceContent("https://a.org/throw.png")).resolves.toBeNull();
+      await expect(browser.getResourceContent("https://a.org/reject.png")).resolves.toBeNull();
+      await expect(browser.getResourceContent("https://a.org/empty.png")).resolves.toBeNull();
+    });
+
+    it("ignores entries without getContent", async () => {
+      const { devtools, browser } = setup();
+      browser.onNetworkRequest(() => {});
+      devtools.finishedListeners.forEach((l) => l(harEntry("https://a.org/plain.png")));
+      await expect(browser.getResourceContent("https://a.org/plain.png")).resolves.toBeNull();
+    });
+
+    it("remembers entries returned by getHAR (getNetworkRequests)", async () => {
+      const { devtools, browser } = setup();
+      devtools.harEntries = [withContent("https://a.org/h.png", (cb) => cb?.("REVG", "base64"))];
+      await browser.getNetworkRequests();
+      await expect(browser.getResourceContent("https://a.org/h.png")).resolves.toEqual({
+        content: "REVG",
+        encoding: "base64",
+      });
+    });
+
+    it("keeps the latest entry of a URL and bounds the memory to the 1000 most recent URLs", async () => {
+      const { devtools, browser } = setup();
+      browser.onNetworkRequest(() => {});
+      const fire = (e: unknown) => devtools.finishedListeners.forEach((l) => l(e));
+      fire(withContent("https://a.org/0.png", (cb) => cb?.("old", "base64")));
+      for (let i = 1; i <= 1000; i++) {
+        fire(withContent(`https://a.org/${i}.png`, (cb) => cb?.(`c${i}`, "base64")));
+      }
+      await expect(browser.getResourceContent("https://a.org/0.png")).resolves.toBeNull();
+      await expect(browser.getResourceContent("https://a.org/1.png")).resolves.toEqual({
+        content: "c1",
+        encoding: "base64",
+      });
+      fire(withContent("https://a.org/1.png", (cb) => cb?.("new", "base64")));
+      fire(withContent("https://a.org/1001.png", (cb) => cb?.("x", "base64")));
+      // 1.png was refreshed so 2.png is now the oldest
+      await expect(browser.getResourceContent("https://a.org/2.png")).resolves.toBeNull();
+      await expect(browser.getResourceContent("https://a.org/1.png")).resolves.toEqual({
+        content: "new",
+        encoding: "base64",
+      });
+    });
+  });
 });

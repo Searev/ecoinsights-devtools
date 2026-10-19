@@ -1,6 +1,6 @@
 # EcoInsights Profiler (V 0.1.0)
 
-EcoInsights Profiler est une extension pour navigateurs (Chrome >= 88, Firefox >= 109) permettant de mesurer l'impact environnemental
+EcoInsights Profiler est une extension pour navigateurs (Chrome >= 103, Firefox >= 109) permettant de mesurer l'impact environnemental
 d'un parcours utilisateur complet sur un service numérique.
 
 Il se fonde sur 3 projets pré-existant.
@@ -25,6 +25,20 @@ Pour mesurer l'impact environnemental d'un service, vous pouvez procéder de la 
 7. Une fois votre parcours terminé, cliquez sur "Terminer l'analyse".
 8. Analysez les résultats ainsi obtenus. Vous pouvez récupérer une extration au format csv des indicateurs
    propres à chaque page.
+
+### Optimisation des images
+
+Lorsque la vérification des bonnes pratiques est activée, deux bonnes pratiques mesurent le gain réel
+d'une optimisation des images de la page, en ré-encodant chaque image dans l'extension :
+
+- **« Ne pas redimensionner les images dans le navigateur »** : images plus grandes que leur taille d'affichage
+  (multipliée par la densité de l'écran) ; le gain est celui de l'image redimensionnée, dans son propre format ;
+- **« Utiliser des formats d'image optimisés »** : JPEG convertis en AVIF, PNG convertis en WebP sans perte.
+
+Les estimations s'exécutent en arrière-plan (« Estimation en cours… (2/5 images) ») ; la note s'affiche lorsqu'elles
+sont terminées. Chaque page indique son **gain estimé (images)**, sans double comptage entre les deux pratiques,
+et le parcours affiche le total. L'export CSV comporte la colonne « Gain images estimé (ko) ».
+Les GIF, ICO, BMP, TIFF, SVG et les images animées ne sont pas évalués.
 
 ## Limitations connues
 
@@ -71,13 +85,24 @@ Les deux navigateurs partagent exactement le même code. Les DevTools de Firefox
 tout accès à l'onglet inspecté passe, sur les deux navigateurs, par l'agent de page. Celui-ci est déclaré comme
 `service_worker` sur Chrome et comme `background.scripts` sur Firefox. Seul le manifeste diffère.
 
-En développement (`npm run dev`), hors extension, un `MockBrowser` simule un navigateur.
+En développement (`npm run dev`), hors extension, un `MockBrowser` simule un navigateur, et un `FakeImageEstimator`
+remplace l'encodage réel des images : aucun fichier WebAssembly n'est chargé.
+
+### Encodage des images
+
+Les estimations d'images utilisent les codecs WebAssembly [`@jsquash/*`](https://github.com/jamsinclair/jSquash)
+(mozjpeg, oxipng, WebP, AVIF, redimensionnement Lanczos3), en version mono-thread, exécutés dans un Web Worker dédié
+(`src/app/infra/image-codec`). Ils ajoutent environ 5,9 Mo à chaque version de l'extension, chargés uniquement
+lorsqu'une estimation en a besoin. Le manifeste autorise `'wasm-unsafe-eval'`, d'où la version minimale de Chrome 103.
 
 ### Ajouter une bonne pratique
 
 1. Créez un fichier `src/app/domain/best-practices/rules/<nom>.rule.ts` exportant un `BestPracticeRule` :
-   un `collect()` optionnel, exécuté dans la page (autonome : ni import ni variable externe), et un `evaluate()` pur,
-   qui reçoit les données collectées et les requêtes réseau de la page.
+   - un `collect()` optionnel, exécuté dans la page (autonome : ni import ni variable externe) ;
+   - un `estimations()` optionnel, pur et synchrone, qui liste les transformations d'image à estimer
+     (`resize`, `convert` ou `resize-convert`). Elles sont mises en file, dédupliquées et exécutées dans un Web Worker ;
+   - un `evaluate()` pur, qui reçoit les données collectées, les requêtes réseau de la page et `estimates`, l'état de
+     chaque estimation demandée. Tant qu'une estimation est en cours, il renvoie une `progress` et pas de `compliance`.
 2. Ajoutez la règle au tableau `RULES` de [index.ts](src/app/domain/best-practices/index.ts).
 3. Ajoutez un fichier de test `<nom>.rule.test.ts`. Le test du registre vérifie automatiquement que `collect` est autonome.
 
@@ -131,9 +156,12 @@ plutôt que simulées avec `vi.mock`.
 
 ## Vie privée
 
-EcoInsights Broser s'exécute pûrement dans le navigateur, en y stockant toutes les
-données nécessaires à son fonctionnement, y compris les analyses passées. Il
-ne réalise aucun appel réseau, et ne transemt donc aucune information à un
+EcoInsights Profiler s'exécute purement dans le navigateur, en y stockant toutes les
+données nécessaires à son fonctionnement, y compris les analyses passées.
+
+Pour estimer le gain d'optimisation des images, l'extension peut re-télécharger les images du site analysé,
+depuis le cache HTTP du navigateur lorsque c'est possible, si les outils de développement n'en ont pas conservé
+le contenu. Ces images sont traitées localement, dans l'extension. Aucune information n'est transmise à un
 quelconque service tiers.
 
 ## License

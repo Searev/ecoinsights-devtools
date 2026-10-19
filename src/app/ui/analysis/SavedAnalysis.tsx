@@ -2,7 +2,7 @@ import { useNavigate, useParams } from "@solidjs/router";
 import { Component, Show, createSignal } from "solid-js";
 import { useEcoInsightsStore } from "../../store";
 import Logo from "../shared/icons/Logo";
-import AnalysisResult from "./AnalysisResult";
+import AnalysisResult, { AnalysisImageGainLine } from "./AnalysisResult";
 import EnvironnementalImpact from "./EnvironnementalImpact";
 import { round } from "../../helpers/math.helpers";
 import { downloadAsCsv } from "../../domain/use-case/export-csv";
@@ -77,6 +77,9 @@ const SavedAnalysis: Component = () => {
                 )}
                 displayEquivalences
               />
+              <p class="mt-2">
+                <AnalysisImageGainLine pagesAnalysed={analysis()?.pages ?? []} />
+              </p>
             </div>
             <div class="px-3 pb-3 bg-surface border-t-2 border-border">
               <MetricsDetailList pagesAnalysed={analysis()?.pages ?? []} />

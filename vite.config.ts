@@ -20,8 +20,21 @@ export default defineConfig({
   server: {
     port: 3000,
   },
+  // The codec worker is an IIFE so that it also loads as a classic worker in Firefox (ARCH-DECISION-009).
+  worker: { format: "iife" },
+  // WASM codecs are loaded by the worker with `new URL(..., import.meta.url)`: do not pre-bundle them.
+  optimizeDeps: {
+    exclude: [
+      "@jsquash/jpeg",
+      "@jsquash/png",
+      "@jsquash/oxipng",
+      "@jsquash/webp",
+      "@jsquash/avif",
+      "@jsquash/resize",
+    ],
+  },
   build: {
-    target: ["chrome88", "firefox109"],
+    target: ["chrome103", "firefox109"],
     outDir,
     emptyOutDir: true,
     rollupOptions: {

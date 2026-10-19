@@ -1,5 +1,29 @@
 # Changelog
 
+## [Unreleased]: US-001 to US-003, image optimisation
+
+### Added
+
+- **"Ne pas redimensionner les images dans le navigateur" measures a real gain.**
+  - Oversized images are compared with their display size multiplied by the screen density, which the detail shows ("Densité d'écran : 2x").
+  - Each one is re-encoded at its target size, in its own format.
+  - The rule is graded by the share of the image weight that can be saved: A below 10 %, B up to 30 %, C above. Gains under 10 kB are ignored.
+- New best practice **"Utiliser des formats d'image optimisés"** (`UseOptimizedImageFormats`): JPEG images are estimated as AVIF (quality 65) and PNG images as lossless WebP, with the same grading.
+- **Estimated image gain** per page and for the whole journey, without double counting between the two rules. An image flagged by both is estimated resized *and* converted.
+  - Images served from the cache count as 0 on that page.
+  - Pending and partial results are labelled ("≥ … (estimation en cours)", "(N images non évaluées)", "(partiel)").
+- **Progress display:** while images are being estimated, the rule shows "Estimation en cours… (n/N images)" instead of a grade, and updates by itself, including on pages already closed.
+- **CSV export:** new column "Gain images estimé (ko)". It is suffixed " (partiel)" while estimating, and empty for analyses saved before this version.
+- **WASM image codecs:** the single-thread `@jsquash/*` builds of mozjpeg, PNG, oxipng, WebP, AVIF and resize.
+  - They run in a dedicated Web Worker and are loaded only when needed, adding about 5.9 MB per browser package.
+  - The extension may re-download images of the analysed site, from the HTTP cache when possible, when DevTools did not keep their content. Nothing is sent to any third party.
+
+### Changed
+
+- **Chrome 103 or later is required**, because the manifest CSP now allows `'wasm-unsafe-eval'` to compile the codecs. Firefox stays at 109 or later.
+- Stopping an analysis while estimations are running saves it at once. The pending images are shown as "non évaluée (analyse arrêtée)".
+- GIF, BMP, ICO, TIFF, SVG and animated images are not evaluated by the image rules.
+
 ## [Unreleased]: REFACTOR-001
 
 ### Changed

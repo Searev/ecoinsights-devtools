@@ -11,7 +11,21 @@ import { Browser } from "../models/browser";
 import { NavigationEvent } from "../models/navigation-event";
 import { BestPracticeRule, CollectOutcome } from "../best-practices/rule";
 import { RULES } from "../best-practices";
-import { collectableRuleIds, evaluateRules } from "../best-practices/engine";
+import {
+  collectableRuleIds,
+  evaluateRules,
+  planEstimations,
+} from "../best-practices/engine";
+import { ImageEstimator } from "../models/image-estimator";
+import { PageImageGain } from "../models/image-estimation";
+import {
+  EstimationQueue,
+  createEstimationQueue,
+} from "../image-estimation/estimation-queue";
+import {
+  computePageImageGain,
+  planCombinedEstimations,
+} from "../image-estimation/image-gain";
 
 export interface WebFlowAnalysisParams {
   refreshOnStart: boolean;
@@ -26,6 +40,11 @@ export interface WebFlowAnalysisOptions {
   domPollIntervalMs?: number;
   /** Minimum delay between two best-practice collections on the same page. Default 5000. */
   collectMinIntervalMs?: number;
+  /**
+   * Estimates image transformations for the image rules (ARCH-DECISION-007). When absent, every
+   * estimation is `failed(estimator-unavailable)` and the image rules show "Non évaluée".
+   */
+  imageEstimator?: ImageEstimator;
 }
 
 export interface WebFlowAnalysis {
@@ -36,8 +55,10 @@ export interface WebFlowAnalysis {
   stopCurrentNavigation(): void;
   /**
    * Stops the analysis, and closes all active listeners and timers. Idempotent.
+   * Pending image estimations become `skipped(analysis-stopped)` (US-001 scenario 12).
+   * @returns the final page analyses, to be saved as is.
    */
-  stopAnalysis(): void;
+  stopAnalysis(): PageAnalysis[];
 }
 
 /** DOM size change that triggers a new best-practice collection. */
@@ -54,6 +75,26 @@ interface CurrentPage {
   lastCollectedDomSize: number;
   lastCollectedAt: number;
 }
+
+/** Everything a best-practice evaluation needs; kept for every page, closed ones included. */
+interface EvaluationSnapshot {
+  url: string;
+  requests: NetworkRequest[];
+  pageData: Record<string, CollectOutcome>;
+}
+
+/** A page closed by a navigation: frozen, except for its image estimations. */
+interface ClosedPage {
+  snapshot: EvaluationSnapshot;
+  analysis: PageAnalysis;
+  /** Estimation-queue version the best practices of `analysis` were built from. */
+  builtAtVersion: number;
+}
+
+/** Estimator used when none is injected: every estimation fails, the image rules show "Non évaluée". */
+const unavailableEstimator: ImageEstimator = {
+  estimate: async () => ({ status: "failed", reason: "estimator-unavailable" }),
+};
 
 function newPage(info: PageInfos | null, seed: boolean): CurrentPage {
   const now = new Date();
@@ -95,7 +136,8 @@ export default async function analyseWebFlow(
   const ruleIds = collectableRuleIds(rules);
 
   let stopped = false;
-  let previousAnalysis: PageAnalysis[] = [];
+  let finalPages: PageAnalysis[] | undefined;
+  const closedList: ClosedPage[] = [];
   let page: CurrentPage = newPage(null, false);
   /** Incremented every time a page is closed; lets async work detect it is stale. */
   let generation = 0;
@@ -115,21 +157,73 @@ export default async function analyseWebFlow(
   page = newPage({ ...pageInfo }, true);
   page.requests.push(...requests);
 
+  /** One queue per analysis; absent when best practices are not checked. */
+  const queue: EstimationQueue | undefined = params.checkBestPractices
+    ? createEstimationQueue(options.imageEstimator ?? unavailableEstimator)
+    : undefined;
+  /** Incremented on every queue change; closed pages are rebuilt only when it moved. */
+  let queueVersion = 0;
+  let queueSubscription: Closeable | undefined;
+
+  const evaluatePage = (
+    snapshot: EvaluationSnapshot
+  ): { bestPractices: BestPractice[]; imageGain?: PageImageGain } => {
+    if (queue === undefined) return { bestPractices: [] };
+    queue.request(planEstimations(rules, snapshot));
+    const bestPractices = evaluateRules(rules, {
+      ...snapshot,
+      estimates: queue.lookup,
+    });
+    const combined = {
+      requests: snapshot.requests,
+      bestPractices,
+      estimates: queue.lookup,
+    };
+    queue.request(planCombinedEstimations(combined));
+    return { bestPractices, imageGain: computePageImageGain(combined) };
+  };
+
+  const withEvaluation = (
+    analysis: PageAnalysis,
+    snapshot: EvaluationSnapshot
+  ): PageAnalysis => {
+    const { bestPractices, imageGain } = evaluatePage(snapshot);
+    const rebuilt: PageAnalysis = { ...analysis, bestPractices };
+    if (imageGain !== undefined) rebuilt.imageGain = imageGain;
+    else delete rebuilt.imageGain;
+    return rebuilt;
+  };
+
+  const snapshotOfCurrent = (): EvaluationSnapshot => ({
+    url: page.info?.url ?? "",
+    requests: page.requests,
+    pageData: page.pageData,
+  });
+
   const buildCurrent = (): PageAnalysis =>
-    createPageAnalysis(
-      page,
-      params.checkBestPractices
-        ? evaluateRules(rules, {
-            url: page.info?.url ?? "",
-            requests: page.requests,
-            pageData: page.pageData,
-          })
-        : []
-    );
+    withEvaluation(createPageAnalysis(page, []), snapshotOfCurrent());
+
+  /** Closed pages, rebuilt (best practices and image gain only) when an estimate changed. */
+  const closedPages = (): PageAnalysis[] => {
+    for (const closed of closedList) {
+      if (closed.builtAtVersion !== queueVersion) {
+        closed.analysis = withEvaluation(closed.analysis, closed.snapshot);
+        closed.builtAtVersion = queueVersion;
+      }
+    }
+    return closedList.map((closed) => closed.analysis);
+  };
 
   const sendAnalysis = () => {
-    if (!stopped) consume([...previousAnalysis, buildCurrent()]);
+    if (!stopped) consume([...closedPages(), buildCurrent()]);
   };
+
+  if (queue !== undefined) {
+    queueSubscription = queue.onChange(() => {
+      queueVersion++;
+      sendAnalysis();
+    });
+  }
 
   /** Collects the page data of the current page. Never rejects; stale results are dropped. */
   const collect = async () => {
@@ -171,7 +265,12 @@ export default async function analyseWebFlow(
 
   const closePage = (newInfo: PageInfos | null = null, seed = true) => {
     if (page.info == null) return;
-    previousAnalysis = [...previousAnalysis, buildCurrent()];
+    const snapshot = snapshotOfCurrent();
+    closedList.push({
+      snapshot,
+      analysis: withEvaluation(createPageAnalysis(page, []), snapshot),
+      builtAtVersion: queueVersion,
+    });
     generation++;
     page = newPage(newInfo, seed);
     sendAnalysis();
@@ -269,11 +368,20 @@ export default async function analyseWebFlow(
   return {
     stopCurrentNavigation: () => closePage(),
     stopAnalysis: () => {
-      if (stopped) return;
-      stopped = true;
-      if (pollTimer !== undefined) clearTimeout(pollTimer);
-      listeners.forEach((listener) => listener.close());
-      browser.log("Analyse terminée");
+      if (finalPages === undefined) {
+        stopped = true;
+        if (pollTimer !== undefined) clearTimeout(pollTimer);
+        listeners.forEach((listener) => listener.close());
+        // Settles the pending estimations; `stopped` keeps the notification away from `consume`.
+        queue?.stop();
+        queueSubscription?.close();
+        browser.log("Analyse terminée");
+        finalPages =
+          page.info == null
+            ? closedPages()
+            : [...closedPages(), buildCurrent()];
+      }
+      return [...finalPages];
     },
   };
 }
