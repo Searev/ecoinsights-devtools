@@ -14,10 +14,11 @@ describe("RULES registry", () => {
     ]);
   });
 
-  it("only the resize and print rules need a collector", () => {
+  it("the print, resize, format and fonts rules have a collector", () => {
     expect(RULES.filter((r) => r.collect).map((r) => r.id)).toEqual([
       "PrintStyleSheet",
       "DontResizeImagesInBrowser",
+      "UseOptimizedImageFormats",
       "UseStandardFonts",
     ]);
   });

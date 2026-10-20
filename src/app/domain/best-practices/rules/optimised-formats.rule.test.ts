@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
 import {
   EncodingSpec,
@@ -8,7 +9,7 @@ import {
 } from "../../models/image-estimation";
 import { NetworkRequest } from "../../models/network-request";
 import { estimated, lookupOf, request } from "../testing/image-fixtures";
-import { optimisedFormatsRule } from "./optimised-formats.rule";
+import { FormatPageData, optimisedFormatsRule } from "./optimised-formats.rule";
 
 const AVIF: EncodingSpec = { format: "avif", quality: 65, speed: 6 };
 const WEBP_LOSSLESS: EncodingSpec = { format: "webp", lossless: true };
@@ -29,12 +30,12 @@ const PHOTO = "https://x.test/img/photo.jpg";
 const LOGO = "https://x.test/logo.png";
 
 describe("optimisedFormatsRule metadata", () => {
-  it("has the expected id, name, category and no collector", () => {
+  it("has the expected id, name, category and a collector", () => {
     expect(optimisedFormatsRule.id).toBe(OPTIMISED_FORMATS_RULE_ID);
     expect(optimisedFormatsRule.id).toBe("UseOptimizedImageFormats");
     expect(optimisedFormatsRule.name).toBe("Utiliser des formats d'image optimisés");
     expect(optimisedFormatsRule.category).toBe("images");
-    expect(optimisedFormatsRule.collect).toBeUndefined();
+    expect(optimisedFormatsRule.collect).toBeTypeOf("function");
   });
 });
 
@@ -282,5 +283,53 @@ describe("pending, too-large, stopped, duplicates", () => {
     const r = ev(requests, lookupOf([[convertJob(PHOTO), jpegToAvif(240_000, 96_000)]]));
     expect(r.images![0].originalBytes).toBe(240_000);
     expect(r.images![0].gainBytes).toBe(144_000);
+  });
+});
+
+describe("US-005: display box from the format collector", () => {
+  const requests = [request(PHOTO, { transferSize: 240_000 })];
+  const estimates = lookupOf([[convertJob(PHOTO), jpegToAvif(240_000, 96_000)]]);
+  const withPage = (page: FormatPageData | undefined, e: EstimateLookup = estimates) =>
+    optimisedFormatsRule.evaluate({ url: "https://x.test", requests, page, estimates: e });
+  const box = (src: string, displayWidth: number, displayHeight: number) => ({ src, displayWidth, displayHeight });
+
+  it("S6: display is the largest box (by area) of the images showing the URL", () => {
+    const r = withPage({
+      images: [box(PHOTO, 100, 50), box(`${PHOTO}#frag`, 300, 200), box(PHOTO, 400, 100), box("https://x.test/other.jpg", 900, 900)],
+    });
+    expect(r.images![0].display).toEqual({ width: 300, height: 200 });
+  });
+
+  it("is 0x0 for an image that no <img> displays", () => {
+    const r = withPage({ images: [box("https://x.test/other.jpg", 300, 200)] });
+    expect(r.images![0].display).toEqual({ width: 0, height: 0 });
+    expect(withPage({ images: [] }).images![0].display).toEqual({ width: 0, height: 0 });
+  });
+
+  it("is absent when the page was not inspected", () => {
+    expect("display" in withPage(undefined).images![0]).toBe(false);
+  });
+
+  it("carries sourceBytes and the natural size of the estimation", () => {
+    const f = withPage(undefined).images![0];
+    expect(f.sourceBytes).toBe(240_000);
+    expect(f.natural).toEqual({ width: 1200, height: 800 });
+  });
+
+  it("does not change the plan, the grade, the detail nor the lines", () => {
+    const page = { images: [box(PHOTO, 300, 200)] };
+    const a = withPage(page);
+    const b = withPage(undefined);
+    expect({ ...a, images: undefined }).toEqual({ ...b, images: undefined });
+    expect(optimisedFormatsRule.estimations!({ url: "https://x.test", requests, page })).toEqual(
+      optimisedFormatsRule.estimations!({ url: "https://x.test", requests, page: undefined })
+    );
+  });
+
+  it("collect reports every <img> with its box, JSON-serialisable", () => {
+    document.body.innerHTML = '<img src="https://x.test/a.png"><img src="https://x.test/b.png">';
+    const out = optimisedFormatsRule.collect!() as FormatPageData;
+    expect(out.images.map((i) => i.src)).toEqual(["https://x.test/a.png", "https://x.test/b.png"]);
+    expect(out.images[0]).toEqual({ src: "https://x.test/a.png", displayWidth: 0, displayHeight: 0 });
   });
 });

@@ -164,7 +164,13 @@ export const dontResizeImagesRule: BestPracticeRule<ResizePageData> = {
     const naturalOf = new Map(oversized.map((c) => [c.url, c]));
 
     const findings: ImageFinding[] = oversized.map((c) => {
-      const base = { url: c.url, declaredType: c.declaredType, target: c.target };
+      const base = {
+        url: c.url,
+        declaredType: c.declaredType,
+        target: c.target,
+        natural: { width: c.naturalWidth, height: c.naturalHeight },
+        display: { width: c.displayWidth, height: c.displayHeight },
+      };
       const known = originalBytesOf(c.request);
       if (isTooLarge(c)) {
         return findingFromState(base, { status: "skipped", reason: "too-large" }, known);

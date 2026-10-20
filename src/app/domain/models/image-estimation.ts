@@ -135,6 +135,23 @@ export interface ImageFinding {
   target?: { width: number; height: number };
   /** US-002: encoding of the recommended format. */
   encoding?: EncodingSpec;
+  /**
+   * US-005 (ARCH-DECISION-013): natural size of the image in pixels, when known (from the page's
+   * `<img>` or from the estimation outcome). Absent in findings saved before US-005.
+   */
+  natural?: { width: number; height: number };
+  /**
+   * US-005: largest CSS box (CSS pixels) in which the image is displayed on the page.
+   * `{ width: 0, height: 0 }` when the image is not displayed by any `<img>` of the page.
+   * Absent when unknown (findings saved before US-005, or the page could not be inspected):
+   * the comparison dialog treats it like "not displayed".
+   */
+  display?: { width: number; height: number };
+  /**
+   * US-005: byte length of the original file as obtained by the estimator (state `estimated`,
+   * `EstimationOutcome.sourceBytes`). Used to detect that the image changed since the analysis.
+   */
+  sourceBytes?: number;
 }
 
 /** Estimation progress of a rule on a page. Present only while at least one image is pending. */

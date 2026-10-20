@@ -43,6 +43,10 @@ Read `docs/architecture/ARCHITECTURE.md` and the `ARCH-DECISION-*.md` files befo
   - Codec tests run the real WASM under Node (`testing/node-wasm.ts`) on synthetic images, with no binary fixtures.
   - The manifest CSP needs `'wasm-unsafe-eval'`, hence `minimum_chrome_version` 103.
   - **Type-checking:** `tsconfig.json` lists `node_modules/@jsquash/jpeg/emscripten-types.d.ts` in `files`, because the glue `.d.ts` files need its global `EmscriptenWasm` namespace. Do not switch to `skipLibCheck` (ARCH-DECISION-008). New project source folders must be under `src/` or added to `include`.
+- **Image names and comparison (ARCH-DECISION-012 to 016).**
+  - Image rule lines must keep the `` `${fileLabel(url)} : ` `` prefix and the `lineFindings` order: the UI pairs each line with its finding to render the shortened name (`displayImageName`) and, for offenders, the comparison button. Unpaired lines fall back to plain text.
+  - The comparison dialog is mounted once (`ImageComparisonProvider` in `index.tsx`); its logic is the pure `comparison-controller.ts`. Variants come from the session `ImageVariantStore` (`domain/image-comparison/`), which uses the `ImageVariantGenerator` port implemented by `WorkerImageEstimator` (worker requests `inspect` and `generate`, sharing the estimation pipeline core).
+  - Keep the extension pages CSP without `img-src`/`default-src` (the dialog displays `blob:` images).
 - **Build.** The manifest is generated from `src/manifest/base.json` + `chrome.json` / `firefox.json`; only `background`, Chrome's `minimum_chrome_version` and Firefox's `gecko` settings differ (the CSP is in `base.json`). The background and Probe are bundled with esbuild, and the panel with Vite.
 
 ## Tests

@@ -6,6 +6,8 @@ import App from "./App";
 import { getBrowser, getImageEstimator } from "./infra/browser-factory";
 import { BrowserProvider } from "./infra/browser-context";
 import { ImageEstimatorProvider } from "./infra/estimator-context";
+import { createImageVariantStore } from "./domain/image-comparison/variant-store";
+import { ImageComparisonProvider } from "./ui/analysis/comparison/comparison-context";
 
 const root = document.getElementById("root");
 
@@ -15,15 +17,18 @@ if (import.meta.env.DEV && !(root instanceof HTMLElement)) {
   );
 }
 
-Promise.all([getBrowser(), getImageEstimator()]).then(([browser, estimator]) =>
+Promise.all([getBrowser(), getImageEstimator()]).then(([browser, estimator]) => {
+  const store = createImageVariantStore(estimator);
   render(
     () => (
       <BrowserProvider browser={browser}>
         <ImageEstimatorProvider estimator={estimator}>
-          <App />
+          <ImageComparisonProvider store={store}>
+            <App />
+          </ImageComparisonProvider>
         </ImageEstimatorProvider>
       </BrowserProvider>
     ),
     root!
-  )
-);
+  );
+});

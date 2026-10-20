@@ -17,18 +17,70 @@ import {
   EncodingSpec,
   EstimationJob,
   EstimationOutcome,
+  FailReason,
   ImageFormat,
+  SkipReason,
 } from "../../domain/models/image-estimation";
 import { decodeBase64 } from "./base64";
 import { Codecs, RawImage } from "./codecs";
 import { isAnimated, isLosslessWebp, readDimensions } from "./image-inspect";
 import { ImageBytes } from "./worker-protocol";
+import { ImageFileInfo } from "../../domain/models/image-variants";
 
 type DecodableFormat = "jpeg" | "png" | "webp" | "avif";
 
 export interface PipelineRequest {
   job: EstimationJob;
   source: ImageBytes;
+}
+
+export interface InspectPipelineRequest {
+  declaredType: string;
+  source: ImageBytes;
+}
+
+/** Result of `inspect` and `generate`: a file with its info, or why there is none. */
+export type FileResult =
+  | { ok: true; bytes: Uint8Array; info: ImageFileInfo }
+  | { ok: false; reason: SkipReason | FailReason; message?: string };
+
+export interface ImagePipeline {
+  estimate(request: PipelineRequest): Promise<EstimationOutcome>;
+  /** The original bytes with their `ImageFileInfo` (US-005). */
+  inspect(request: InspectPipelineRequest): Promise<FileResult>;
+  /** Runs the estimation steps of `job` and returns the encoded bytes (US-005). */
+  generate(request: PipelineRequest): Promise<FileResult>;
+}
+
+const MIME_TYPES: Partial<Record<ImageFormat, string>> = {
+  jpeg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+  avif: "image/avif",
+  svg: "image/svg+xml",
+};
+const mimeTypeOf = (format: ImageFormat) => MIME_TYPES[format] ?? `image/${format}`;
+
+/** Outcome of the shared core: everything `estimate` and `generate` need. */
+type CoreResult =
+  | {
+      status: "done";
+      sourceFormat: ImageFormat;
+      target: EncodingSpec;
+      sourceBytes: number;
+      encoded: Uint8Array;
+      natural: { width: number; height: number };
+      output: { width: number; height: number };
+    }
+  | { status: "skipped" | "failed"; outcome: EstimationOutcome };
+
+const stop = (outcome: EstimationOutcome): CoreResult => ({
+  status: outcome.status === "skipped" ? "skipped" : "failed",
+  outcome,
+});
+
+function sourceToBytes(source: ImageBytes): Uint8Array {
+  return source.kind === "base64" ? decodeBase64(source.data) : new Uint8Array(source.data);
 }
 
 const failed = (reason: "bytes-unavailable" | "decode-failed" | "encode-failed", error?: unknown): EstimationOutcome => ({
@@ -56,7 +108,7 @@ function ownFormatEncoding(format: DecodableFormat, bytes: Uint8Array): Encoding
   }
 }
 
-export function createEstimationPipeline(codecs: Codecs): (request: PipelineRequest) => Promise<EstimationOutcome> {
+export function createImagePipeline(codecs: Codecs): ImagePipeline {
   /** Last decoded image: the (up to) three jobs of one URL decode once. */
   let last: { key: string; image: Promise<RawImage> } | undefined;
 
@@ -71,43 +123,48 @@ export function createEstimationPipeline(codecs: Codecs): (request: PipelineRequ
     return image;
   };
 
-  const estimate = async ({ job, source }: PipelineRequest): Promise<EstimationOutcome> => {
+  /** Detection, caps, encoding choice, decode, resize and encode: shared by `estimate` and `generate`. */
+  const core = async ({ job, source }: PipelineRequest): Promise<CoreResult> => {
     let bytes: Uint8Array;
     try {
-      bytes = source.kind === "base64" ? decodeBase64(source.data) : new Uint8Array(source.data);
+      bytes = sourceToBytes(source);
     } catch (error) {
-      return failed("bytes-unavailable", error);
+      return stop(failed("bytes-unavailable", error));
     }
-    if (bytes.length > MAX_IMAGE_BYTES) return skipped("too-large");
+    if (bytes.length > MAX_IMAGE_BYTES) return stop(skipped("too-large"));
 
     const format = detectImageFormat(job.declaredType, bytes.subarray(0, 32));
     if (format === "unknown") {
       const mime = formatFromMime(job.declaredType);
-      return mime === "generic" || mime === undefined ? skipped("not-an-image") : skipped("unsupported-format", format);
+      return stop(
+        mime === "generic" || mime === undefined ? skipped("not-an-image") : skipped("unsupported-format", format),
+      );
     }
-    if (!CODEC_FORMATS.includes(format)) return skipped("unsupported-format", format);
+    if (!CODEC_FORMATS.includes(format)) return stop(skipped("unsupported-format", format));
     const decodable = format as DecodableFormat;
-    if (isAnimated(decodable, bytes)) return skipped("animated", format);
+    if (isAnimated(decodable, bytes)) return stop(skipped("animated", format));
 
     const transform = job.transform;
     let target: EncodingSpec;
     if (transform.kind === "resize") {
       target = ownFormatEncoding(decodable, bytes);
     } else {
-      if (ALREADY_OPTIMISED_FORMATS.includes(format)) return skipped("already-optimised", format);
+      if (ALREADY_OPTIMISED_FORMATS.includes(format)) return stop(skipped("already-optimised", format));
       const recommended = RECOMMENDED_ENCODING[format];
-      if (!recommended) return skipped("unsupported-format", format);
+      if (!recommended) return stop(skipped("unsupported-format", format));
       target = recommended;
     }
 
     const dimensions = readDimensions(decodable, bytes);
-    if (dimensions && dimensions.width * dimensions.height > MAX_IMAGE_PIXELS) return skipped("too-large", format);
+    if (dimensions && dimensions.width * dimensions.height > MAX_IMAGE_PIXELS) {
+      return stop(skipped("too-large", format));
+    }
 
     let image: RawImage;
     try {
       image = await decodeOnce(`${job.url}|${bytes.length}`, decodable, bytes);
     } catch (error) {
-      return failed("decode-failed", error);
+      return stop(failed("decode-failed", error));
     }
 
     try {
@@ -120,24 +177,119 @@ export function createEstimationPipeline(codecs: Codecs): (request: PipelineRequ
       }
       const encoded = await codecs.encode(pixels, target);
       return {
-        status: "estimated",
+        status: "done",
         sourceFormat: format,
         target,
         sourceBytes: bytes.length,
-        encodedBytes: encoded.length,
-        width: image.width,
-        height: image.height,
+        encoded,
+        natural: { width: image.width, height: image.height },
+        output: { width: pixels.width, height: pixels.height },
       };
     } catch (error) {
-      return failed("encode-failed", error);
+      return stop(failed("encode-failed", error));
     }
   };
 
-  return async (request) => {
+  const estimate = async (request: PipelineRequest): Promise<EstimationOutcome> => {
+    const result = await core(request);
+    if (result.status !== "done") return result.outcome;
+    return {
+      status: "estimated",
+      sourceFormat: result.sourceFormat,
+      target: result.target,
+      sourceBytes: result.sourceBytes,
+      encodedBytes: result.encoded.length,
+      width: result.natural.width,
+      height: result.natural.height,
+    };
+  };
+
+  const generate = async (request: PipelineRequest): Promise<FileResult> => {
+    const result = await core(request);
+    if (result.status !== "done") {
+      return result.outcome.status === "estimated"
+        ? { ok: false, reason: "encode-failed" }
+        : {
+            ok: false,
+            reason: result.outcome.reason,
+            ...(result.outcome.status === "failed" && result.outcome.message !== undefined
+              ? { message: result.outcome.message }
+              : {}),
+          };
+    }
+    const { target, encoded, output } = result;
+    return {
+      ok: true,
+      bytes: encoded,
+      info: {
+        format: target.format,
+        ...(target.format === "webp" ? { lossless: target.lossless } : {}),
+        width: output.width,
+        height: output.height,
+        byteLength: encoded.length,
+        mimeType: mimeTypeOf(target.format),
+      },
+    };
+  };
+
+  const inspect = async ({ declaredType, source }: InspectPipelineRequest): Promise<FileResult> => {
+    let bytes: Uint8Array;
     try {
-      return await estimate(request);
+      bytes = sourceToBytes(source);
     } catch (error) {
-      return failed("decode-failed", error);
+      return { ok: false, reason: "bytes-unavailable", message: error instanceof Error ? error.message : String(error) };
+    }
+    if (bytes.length > MAX_IMAGE_BYTES) return { ok: false, reason: "too-large" };
+    const format = detectImageFormat(declaredType, bytes.subarray(0, 32));
+    if (format === "unknown") {
+      const mime = formatFromMime(declaredType);
+      return { ok: false, reason: mime === "generic" || mime === undefined ? "not-an-image" : "unsupported-format" };
+    }
+    if (!CODEC_FORMATS.includes(format)) return { ok: false, reason: "unsupported-format" };
+    const decodable = format as DecodableFormat;
+    let size = readDimensions(decodable, bytes);
+    if (!size) {
+      // No URL here, so the one-entry decode cache cannot be keyed safely: decode directly (rare).
+      try {
+        const image = await codecs.decode(decodable, bytes);
+        size = { width: image.width, height: image.height };
+      } catch (error) {
+        return { ok: false, reason: "decode-failed", message: error instanceof Error ? error.message : String(error) };
+      }
+    }
+    return {
+      ok: true,
+      bytes,
+      info: {
+        format,
+        ...(format === "webp" ? { lossless: isLosslessWebp(bytes) } : {}),
+        width: size.width,
+        height: size.height,
+        byteLength: bytes.length,
+        mimeType: mimeTypeOf(format),
+      },
+    };
+  };
+
+  /** Public methods never reject: any unexpected throw becomes a failure. */
+  const guard = async <T>(run: () => Promise<T>, fallback: (error: unknown) => T): Promise<T> => {
+    try {
+      return await run();
+    } catch (error) {
+      return fallback(error);
     }
   };
+  const message = (error: unknown) => (error instanceof Error ? error.message : String(error));
+
+  return {
+    estimate: (request) => guard(() => estimate(request), (e) => failed("decode-failed", e)),
+    generate: (request) =>
+      guard(() => generate(request), (e) => ({ ok: false, reason: "decode-failed", message: message(e) })),
+    inspect: (request) =>
+      guard(() => inspect(request), (e) => ({ ok: false, reason: "decode-failed", message: message(e) })),
+  };
+}
+
+export function createEstimationPipeline(codecs: Codecs): (request: PipelineRequest) => Promise<EstimationOutcome> {
+  return createImagePipeline(codecs).estimate;
 }

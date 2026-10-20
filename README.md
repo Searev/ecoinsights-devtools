@@ -40,6 +40,29 @@ sont terminées. Chaque page indique son **gain estimé (images)**, sans double 
 et le parcours affiche le total. L'export CSV comporte la colonne « Gain images estimé (ko) ».
 Les GIF, ICO, BMP, TIFF, SVG et les images animées ne sont pas évalués.
 
+Les noms de fichiers longs sont raccourcis (12 premiers caractères, « ... », 12 derniers, puis l'extension) ;
+le nom complet s'affiche au survol et est lu par les lecteurs d'écran.
+
+#### Comparer une image avec sa version optimisée
+
+Dans la liste des éléments concernés, le nom de chaque image à optimiser est un bouton. Il ouvre une fenêtre de
+comparaison qui permet de basculer entre :
+
+- **Originale** et **Redimensionnée** (« Ne pas redimensionner les images dans le navigateur ») ;
+- **Originale** et **AVIF** ou **WebP sans perte** (« Utiliser des formats d'image optimisés ») ;
+- les deux options précédentes et **Les deux** (redimensionnée et convertie) pour une image signalée par les deux
+  pratiques.
+
+Pour chaque version, la fenêtre affiche la résolution, le poids, le format et, pour une version optimisée, le gain
+(par exemple « −144 ko (−60 %) »). Par défaut, chaque version est dessinée à la taille de l'image sur la page
+(« Même taille que sur la page ») ; l'option **« Taille réelle »** l'affiche à sa résolution native (1 pixel de
+l'image = 1 pixel de l'écran) pour inspecter les artefacts de compression.
+
+Les versions optimisées sont générées à la demande, avec les mêmes réglages que l'estimation (leur poids est donc
+celui affiché dans la liste), y compris pour une analyse enregistrée. Elles sont conservées en mémoire pendant la
+session du panneau (50 Mo au plus) : rouvrir une image est instantané. Si l'image a changé depuis l'analyse, un
+avertissement le signale.
+
 ## Limitations connues
 
 L'écoindex est fondé sur l'analyse d'un ensemble de sites de références, avec une page unique. Son calcul n'est
@@ -161,7 +184,8 @@ données nécessaires à son fonctionnement, y compris les analyses passées.
 
 Pour estimer le gain d'optimisation des images, l'extension peut re-télécharger les images du site analysé,
 depuis le cache HTTP du navigateur lorsque c'est possible, si les outils de développement n'en ont pas conservé
-le contenu. Ces images sont traitées localement, dans l'extension. Aucune information n'est transmise à un
+le contenu. Il en va de même pour la fenêtre de comparaison des images, y compris sur une analyse enregistrée.
+Ces images sont traitées localement, dans l'extension, et les versions optimisées ne sont jamais enregistrées. Aucune information n'est transmise à un
 quelconque service tiers.
 
 ## License

@@ -1,9 +1,10 @@
 import { beforeAll, describe, expect, it } from "vitest";
+import { sniffImageFormat } from "../../domain/image-estimation/signature";
 import { MAX_IMAGE_BYTES, OWN_FORMAT_ENCODING, RECOMMENDED_ENCODING } from "../../domain/image-estimation/policy";
 import { EstimationJob, EstimationOutcome, ImageTransform } from "../../domain/models/image-estimation";
 import { Codecs } from "./codecs";
 import { createJsquashCodecs } from "./jsquash-codecs";
-import { createEstimationPipeline } from "./pipeline";
+import { createEstimationPipeline, createImagePipeline } from "./pipeline";
 import { createFakeCodecs } from "./testing/fake-codecs";
 import { loadWasmFromNodeModules } from "./testing/node-wasm";
 import {
@@ -267,3 +268,169 @@ function countingCodecs(inner: Codecs) {
   };
   return { codecs, calls };
 }
+
+describe("image pipeline: generate and inspect (real codecs)", () => {
+  let files: Awaited<ReturnType<typeof sampleFiles>>;
+  let pipeline: ReturnType<typeof createImagePipeline>;
+  beforeAll(async () => {
+    const codecs = createJsquashCodecs(loadWasmFromNodeModules);
+    files = await sampleFiles(codecs, 96, 64);
+    pipeline = createImagePipeline(codecs);
+  });
+
+  const RESIZE_CONVERT = { kind: "resize-convert", width: 48, height: 32 } as const;
+  const cases: Array<[string, ImageTransform, string, () => Uint8Array, string]> = [
+    ["JPEG resize", HALF, "image/jpeg", () => files.jpeg, "jpeg"],
+    ["JPEG convert to AVIF", CONVERT, "image/jpeg", () => files.jpeg, "avif"],
+    ["PNG convert to lossless WebP", CONVERT, "image/png", () => files.png, "webp"],
+    ["JPEG resize-convert", RESIZE_CONVERT, "image/jpeg", () => files.jpeg, "avif"],
+  ];
+
+  it.each(cases)("generate(%s) has exactly the estimated byte length", async (_name, transform, type, bytes, format) => {
+    const request = { job: job(transform, type), source: b64(bytes()) };
+    const estimated = await pipeline.estimate(request);
+    const generated = await pipeline.generate(request);
+    expect(estimated.status).toBe("estimated");
+    if (estimated.status !== "estimated" || !generated.ok) throw new Error("expected success");
+    expect(generated.info.byteLength).toBe(estimated.encodedBytes);
+    expect(generated.bytes.length).toBe(estimated.encodedBytes);
+    expect(sniffImageFormat(generated.bytes)).toBe(format);
+    expect(generated.info.format).toBe(format);
+  });
+
+  it("generate reports the output size: resized to the target, natural for a convert", async () => {
+    const resized = await pipeline.generate({ job: job(HALF, "image/jpeg"), source: b64(files.jpeg) });
+    expect(resized).toMatchObject({ ok: true, info: { format: "jpeg", width: 48, height: 32, mimeType: "image/jpeg" } });
+    const converted = await pipeline.generate({ job: job(CONVERT, "image/jpeg"), source: b64(files.jpeg) });
+    expect(converted).toMatchObject({ ok: true, info: { format: "avif", width: 96, height: 64, mimeType: "image/avif" } });
+    const both = await pipeline.generate({ job: job(RESIZE_CONVERT, "image/jpeg"), source: b64(files.jpeg) });
+    expect(both).toMatchObject({ ok: true, info: { format: "avif", width: 48, height: 32 } });
+  });
+
+  it("generate flags a lossless WebP and gives no lossless field for other formats", async () => {
+    const webp = await pipeline.generate({ job: job(CONVERT, "image/png"), source: b64(files.png) });
+    expect(webp).toMatchObject({ ok: true, info: { format: "webp", lossless: true, mimeType: "image/webp" } });
+    const jpeg = await pipeline.generate({ job: job(HALF, "image/jpeg"), source: b64(files.jpeg) });
+    expect(jpeg.ok && jpeg.info.lossless).toBeUndefined();
+  });
+
+  it("generate returns the reason of a non-estimated outcome", async () => {
+    expect(await pipeline.generate({ job: job(CONVERT, "image/webp"), source: b64(files.webpLossy) })).toEqual({
+      ok: false,
+      reason: "already-optimised",
+    });
+    expect(await pipeline.generate({ job: job(CONVERT, "application/octet-stream"), source: b64(htmlBytes()) })).toEqual({
+      ok: false,
+      reason: "not-an-image",
+    });
+  });
+
+  it.each([
+    ["JPEG", "image/jpeg", () => files.jpeg, "jpeg"],
+    ["PNG", "image/png", () => files.png, "png"],
+  ] as const)("inspect returns the %s bytes untouched, base64 or binary", async (_n, type, bytes, format) => {
+    const original = bytes();
+    const fromBase64 = await pipeline.inspect({ declaredType: type, source: b64(original) });
+    const fromBinary = await pipeline.inspect({
+      declaredType: type,
+      source: { kind: "binary", data: original.slice().buffer },
+    });
+    for (const result of [fromBase64, fromBinary]) {
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(Array.from(result.bytes)).toEqual(Array.from(original));
+      expect(result.info).toEqual({
+        format,
+        width: 96,
+        height: 64,
+        byteLength: original.length,
+        mimeType: type,
+      });
+    }
+  });
+
+  it("inspect flags lossless and lossy WebP", async () => {
+    const lossless = await pipeline.inspect({ declaredType: "image/webp", source: b64(files.webpLossless) });
+    expect(lossless).toMatchObject({ ok: true, info: { format: "webp", lossless: true } });
+    const lossy = await pipeline.inspect({ declaredType: "", source: b64(files.webpLossy) });
+    expect(lossy).toMatchObject({ ok: true, info: { format: "webp", lossless: false } });
+  });
+
+  it("inspect refuses what is not an image, unsupported formats and huge files", async () => {
+    expect(await pipeline.inspect({ declaredType: "application/octet-stream", source: b64(htmlBytes()) })).toEqual({
+      ok: false,
+      reason: "not-an-image",
+    });
+    expect(await pipeline.inspect({ declaredType: "image/gif", source: b64(gifBytes()) })).toEqual({
+      ok: false,
+      reason: "unsupported-format",
+    });
+    const big = new Uint8Array(MAX_IMAGE_BYTES + 1);
+    big.set(pngHeader(10, 10));
+    expect(await pipeline.inspect({ declaredType: "image/png", source: b64(big) })).toEqual({
+      ok: false,
+      reason: "too-large",
+    });
+  });
+
+  it("inspect reports bytes-unavailable on invalid base64 and never rejects", async () => {
+    expect(await pipeline.inspect({ declaredType: "image/png", source: { kind: "base64", data: "%%%" } })).toMatchObject({
+      ok: false,
+      reason: "bytes-unavailable",
+    });
+  });
+});
+
+describe("image pipeline: generate and inspect (fake codecs)", () => {
+  const png = () => pngHeader(100, 80);
+
+  it("generate fails with encode-failed when encoding throws", async () => {
+    const fake = createFakeCodecs();
+    fake.failEncode = true;
+    const result = await createImagePipeline(fake).generate({ job: job(CONVERT, "image/png"), source: b64(png()) });
+    expect(result).toMatchObject({ ok: false, reason: "encode-failed", message: "encode boom" });
+  });
+
+  it("generate fails with decode-failed when decoding throws", async () => {
+    const fake = createFakeCodecs();
+    fake.failDecode = true;
+    expect(await createImagePipeline(fake).generate({ job: job(HALF, "image/png"), source: b64(png()) })).toMatchObject({
+      ok: false,
+      reason: "decode-failed",
+    });
+  });
+
+  it("estimate and generate of the same URL decode once", async () => {
+    const fake = createFakeCodecs();
+    const pipeline = createImagePipeline(fake);
+    const request = { job: job(HALF, "image/png"), source: b64(png()) };
+    await pipeline.estimate(request);
+    await pipeline.generate(request);
+    expect(fake.calls.decode).toBe(1);
+  });
+
+  it("inspect reads the size from the header without decoding, and decodes when the header is unreadable", async () => {
+    const fake = createFakeCodecs({ width: 7, height: 5 });
+    const pipeline = createImagePipeline(fake);
+    expect(await pipeline.inspect({ declaredType: "image/png", source: b64(png()) })).toMatchObject({
+      ok: true,
+      info: { width: 100, height: 80 },
+    });
+    expect(fake.calls.decode).toBe(0);
+    const jpegLike = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 2]);
+    expect(await pipeline.inspect({ declaredType: "image/jpeg", source: b64(jpegLike) })).toMatchObject({
+      ok: true,
+      info: { width: 7, height: 5 },
+    });
+    expect(fake.calls.decode).toBe(1);
+  });
+
+  it("inspect reports decode-failed and never rejects", async () => {
+    const fake = createFakeCodecs();
+    fake.failDecode = true;
+    const jpegLike = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 2]);
+    expect(
+      await createImagePipeline(fake).inspect({ declaredType: "image/jpeg", source: b64(jpegLike) }),
+    ).toMatchObject({ ok: false, reason: "decode-failed" });
+  });
+});

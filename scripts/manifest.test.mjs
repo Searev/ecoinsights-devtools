@@ -52,6 +52,17 @@ describe("merged manifests", () => {
     });
   });
 
+  it.each([["chrome", chrome], ["firefox", firefox]])(
+    "%s sets no img-src or default-src, so blob: images of the comparison dialog are allowed",
+    (_n, m) => {
+      const directives = m.content_security_policy.extension_pages
+        .split(";")
+        .map((d) => d.trim().split(/\s+/)[0]);
+      expect(directives).not.toContain("img-src");
+      expect(directives).not.toContain("default-src");
+    },
+  );
+
   it("chrome requires Chrome 103 (wasm-unsafe-eval)", () => {
     expect(chrome.minimum_chrome_version).toBe("103");
   });

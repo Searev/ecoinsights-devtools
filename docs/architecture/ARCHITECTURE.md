@@ -30,6 +30,9 @@ flowchart LR
     BYTES -->|getResourceContent| EB
     BYTES -->|"fetch(force-cache)"| WEB[(HTTP cache / network)]
     WIE -->|postMessage| WK[["infra/image-codec<br/>codec.worker (WASM)"]]
+    UI -->|useImageComparison| CMP[ui/analysis/comparison<br/>dialog + controller]
+    CMP --> VS[domain/image-comparison<br/>variant store, LRU]
+    VS -->|ImageVariantGenerator| WIE
     EB --> HAR[infra/har.ts]
     EB -->|chrome.devtools.network| NET[(DevTools network)]
   end
@@ -48,6 +51,7 @@ ui/  ──►  domain/  ◄──  infra/
            │  use-case/     (analyse-web-flow, ecoindex, export-csv)
            │  best-practices/ (rule.ts, engine.ts, index.ts, rules/*.rule.ts)
            │  image-estimation/ (policy, estimation-queue, image-gain, image-requests, signature)
+           │  image-comparison/ (comparison-subject, variant-store, lru-byte-cache)
 ```
 
 - `domain/` never references `chrome`/`browser` and never imports `infra/` or `ui/`. ESLint enforces this.
@@ -119,16 +123,45 @@ sequenceDiagram
   Q-->>UC: onChange → re-evaluate all pages → consume()
 ```
 
+### 3.5 Image names and comparison dialog (US-004, US-005)
+
+Decisions: [ARCH-DECISION-012](ARCH-DECISION-012-on-demand-variant-generation.md) (on-demand variants), [013](ARCH-DECISION-013-comparison-subject-from-findings.md) (comparison subject, finding fields), [014](ARCH-DECISION-014-session-variant-cache.md) (session cache), [015](ARCH-DECISION-015-image-lines-from-findings.md) (image lines), [016](ARCH-DECISION-016-comparison-dialog-host.md) (dialog host, CSP `blob:`).
+
+1. **Image lines** (`ui/analysis/best-practices-view.ts`): each persisted line of an image rule is paired with its finding through `lineFindings` (same order as the rule's lines, each starting with `fileLabel : `). The name is shortened by `displayImageName` (`ui/analysis/image-name.ts`); lines that cannot be paired (legacy analyses, other rules) stay plain text.
+2. **Comparison subject** (`domain/image-comparison/comparison-subject.ts`): for an offender line, `comparisonSubjectFor(page.bestPractices, ruleId, url)` gives the versions to toggle (Originale, Redimensionnée, AVIF / WebP sans perte, Les deux) with their `EstimationJob`s, plus the natural size, display box and recorded weight from the findings (`ImageFinding.natural`, `display`, `sourceBytes`). The format rule has a page collector only for the display boxes.
+3. **Variant store** (`domain/image-comparison/variant-store.ts`): one per panel session, created in `index.tsx`. It caches originals and variants in a 50 MB LRU, shares in-flight work (which completes after the dialog closed) and never caches errors.
+4. **Generation:** `WorkerImageEstimator` also implements the `ImageVariantGenerator` port. `loadOriginal` uses the same bytes source as the estimation and sends an `inspect` request; `generate` sends a `generate` request with a copy of the original. The worker runs `createImagePipeline(codecs)`: `estimate`, `inspect` and `generate` share one core, so a generated size equals the estimate.
+5. **Dialog** (`ui/analysis/comparison/`): `ImageComparisonProvider` renders one native `<dialog>` for the app; `createComparisonController` (pure) holds the per-version `idle | loading | loaded | error` states, the selected version and the display mode, ignores late results after close, and creates/revokes the object URLs.
+
+```mermaid
+sequenceDiagram
+  participant L as Image name button
+  participant C as Comparison controller
+  participant S as Variant store
+  participant E as WorkerImageEstimator
+  participant W as codec.worker
+  L->>C: open(subject)
+  C->>S: original(url) (peek first)
+  S->>E: loadOriginal (DevTools content, else fetch force-cache)
+  E->>W: inspect
+  W-->>E: bytes + info
+  C->>S: variant(job) on selection
+  S->>E: generate(job, copy of original)
+  E->>W: generate
+  W-->>E: encoded bytes + info
+  S-->>C: loaded → object URL → <img>
+```
+
 ## 4. Build
 
 `npm run build` → `dist/chrome/` and `dist/firefox/` (+ zips). The manifest is generated from `src/manifest/base.json` plus a per-target overlay. Only the `background` key, Chrome's `minimum_chrome_version` (103) and Firefox's `browser_specific_settings` differ.
 
-- **CSP:** both targets get `script-src 'self' 'wasm-unsafe-eval'; object-src 'self'` for extension pages, which is needed to compile WASM. This is why Chrome needs version 103 or later.
+- **CSP:** both targets get `script-src 'self' 'wasm-unsafe-eval'; object-src 'self'` for extension pages, which is needed to compile WASM. This is why Chrome needs version 103 or later. It deliberately has no `img-src` and no `default-src`, so the comparison dialog can display `blob:` images; `scripts/manifest.test.mjs` asserts it (ARCH-DECISION-016).
 - **Codec worker:** Vite builds it as a classic IIFE (`worker.format: "iife"`) and emits each codec `.wasm` as a separate asset, about 5.9 MB per target. They are loaded only when an estimation needs them. `optimizeDeps.exclude` keeps the `@jsquash/*` packages out of the dev pre-bundle.
 - **Type-checking:** `tsconfig.json` adds `@jsquash/jpeg/emscripten-types.d.ts` to `files`, because the glue files imported directly need its global `EmscriptenWasm` namespace (ARCH-DECISION-008).
 
 ## 5. Tests
 
-Vitest (`npm test`) plus jsdom for page-side code. Every module is tested through its interface with injected fakes (fake `chrome` objects, `MockBrowser`, fake `ImageEstimator`, fake `WorkerLike`, fake codecs), not with module mocking. See [ARCH-DECISION-006](ARCH-DECISION-006-test-strategy.md).
+Vitest (`npm test`) plus jsdom for page-side code. There are no Solid component tests: the comparison dialog's behaviour is tested through its pure controller and helpers. Every module is tested through its interface with injected fakes (fake `chrome` objects, `MockBrowser`, fake `ImageEstimator`, fake `WorkerLike`, fake codecs), not with module mocking. See [ARCH-DECISION-006](ARCH-DECISION-006-test-strategy.md).
 
 The codec tests run the **real** WASM codecs under Node: `infra/image-codec/testing/node-wasm.ts` compiles the `.wasm` files from `node_modules`, and the test images are synthetic, generated in the tests.

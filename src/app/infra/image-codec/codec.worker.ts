@@ -13,7 +13,7 @@ import avifDecUrl from "@jsquash/avif/codec/dec/avif_dec.wasm?url";
 import avifEncUrl from "@jsquash/avif/codec/enc/avif_enc.wasm?url";
 import resizeUrl from "@jsquash/resize/lib/resize/pkg/squoosh_resize_bg.wasm?url";
 import { CodecWasm, createJsquashCodecs } from "./jsquash-codecs";
-import { createEstimationPipeline } from "./pipeline";
+import { createImagePipeline, FileResult } from "./pipeline";
 import { CodecRequest, CodecResponse } from "./worker-protocol";
 
 const WASM_URLS: Record<CodecWasm, string> = {
@@ -33,10 +33,39 @@ const loadWasm = (name: CodecWasm) =>
     .then((response) => response.arrayBuffer())
     .then((bytes) => WebAssembly.compile(bytes));
 
-const estimate = createEstimationPipeline(createJsquashCodecs(loadWasm));
+const pipeline = createImagePipeline(createJsquashCodecs(loadWasm));
+
+/** The buffer to transfer: the exact bytes, sliced when they are a view on a larger buffer. */
+function exactBuffer(bytes: Uint8Array): ArrayBuffer {
+  return bytes.byteOffset === 0 && bytes.byteLength === bytes.buffer.byteLength
+    ? (bytes.buffer as ArrayBuffer)
+    : (bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer);
+}
+
+async function answerFile(id: number, run: () => Promise<FileResult>) {
+  const result = await run();
+  if (!result.ok) {
+    self.postMessage({ type: "file", id, result } satisfies CodecResponse);
+    return;
+  }
+  const bytes = exactBuffer(result.bytes);
+  const response: CodecResponse = { type: "file", id, result: { ok: true, bytes, info: result.info } };
+  self.postMessage(response, { transfer: [bytes] });
+}
 
 self.onmessage = async (event: MessageEvent<CodecRequest>) => {
-  const { id, job, source } = event.data;
-  const outcome = await estimate({ job, source });
-  self.postMessage({ type: "result", id, outcome } satisfies CodecResponse);
+  const request = event.data;
+  switch (request.type) {
+    case "estimate": {
+      const outcome = await pipeline.estimate({ job: request.job, source: request.source });
+      self.postMessage({ type: "result", id: request.id, outcome } satisfies CodecResponse);
+      return;
+    }
+    case "inspect":
+      return answerFile(request.id, () =>
+        pipeline.inspect({ declaredType: request.declaredType, source: request.source }),
+      );
+    case "generate":
+      return answerFile(request.id, () => pipeline.generate({ job: request.job, source: request.source }));
+  }
 };

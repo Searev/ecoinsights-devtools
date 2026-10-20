@@ -6,6 +6,7 @@ import {
 import { PageAnalysis } from "../../domain/models/page-analysis";
 import ExpandMore from "../shared/icons/ExpandMore";
 import ExpandLess from "../shared/icons/ExpandLess";
+import { ImageName } from "./ImageName";
 import {
   AggregatedBestPractice,
   CATEGORY_LABELS,
@@ -107,12 +108,27 @@ export function BestPractices(props: { pagesAnalysed: PageAnalysis[] }) {
             <Show when={itemProps.item.error}>
               <p class="mb-2 italic">Erreur : {itemProps.item.error}</p>
             </Show>
-            <Show when={itemProps.item.offenders.length > 0}>
+            <Show when={itemProps.item.lines.length > 0}>
               <p class="font-medium">Éléments concernés :</p>
               <ul class="list-disc mb-2">
-                <For each={itemProps.item.offenders}>
-                  {(offender) => (
-                    <li class="ml-4 break-all">{offender}</li>
+                <For each={itemProps.item.lines}>
+                  {(line) => (
+                    <Show
+                      when={line.kind === "image" ? line : undefined}
+                      fallback={<li class="ml-4 break-all">{line.text}</li>}
+                    >
+                      {(image) => (
+                        <li class="ml-4">
+                          <ImageName
+                            name={image().name}
+                            comparison={image().comparison}
+                            ruleId={image().ruleId}
+                            url={image().url}
+                          />
+                          <span class="break-all">{" : "}{image().rest}</span>
+                        </li>
+                      )}
+                    </Show>
                   )}
                 </For>
               </ul>

@@ -94,7 +94,8 @@ const OUT_OF_SCOPE: readonly (SkipReason | FailReason | undefined)[] = [
 
 /** Builds the finding fields shared by both rules from the state of an estimation. */
 export function findingFromState(
-  base: Pick<ImageFinding, "url" | "declaredType" | "target">,
+  base: Pick<ImageFinding, "url" | "declaredType" | "target"> &
+    Partial<Pick<ImageFinding, "natural" | "display">>,
   state: EstimateState | undefined,
   knownOriginalBytes: number | undefined
 ): ImageFinding {
@@ -110,6 +111,8 @@ export function findingFromState(
       gainBytes,
       offender: gainBytes >= NOISE_THRESHOLD_BYTES,
       sourceFormat: stateOf.sourceFormat,
+      sourceBytes: stateOf.sourceBytes,
+      natural: base.natural ?? { width: stateOf.width, height: stateOf.height },
     };
   }
   const finding: ImageFinding = {
@@ -141,6 +144,21 @@ export function classifyFinding(f: ImageFinding): FindingKind {
   return OUT_OF_SCOPE.includes(f.reason) ? "out-of-scope" : "not-evaluated";
 }
 
+/**
+ * Findings that get a line in `RuleResult.offenders`, in line order: offenders by gain (desc,
+ * then URL), then not-evaluated images. Empty while any finding is pending (no lines then).
+ * Every line starts with `${fileLabel(url)} : `. The UI (US-004) zips the persisted lines with
+ * this order to render each line from its finding; keep both in sync.
+ */
+export function lineFindings(findings: readonly ImageFinding[]): ImageFinding[] {
+  if (findings.some((f) => f.state === "pending")) return [];
+  const offenders = findings
+    .filter((f) => classifyFinding(f) === "offender")
+    .sort((a, b) => b.gainBytes! - a.gainBytes! || a.url.localeCompare(b.url));
+  const notEvaluated = findings.filter((f) => classifyFinding(f) === "not-evaluated");
+  return [...offenders, ...notEvaluated];
+}
+
 export interface SummaryOptions {
   /** Prepended to every detail (e.g. the screen density line). */
   detailPrefix: string;
@@ -170,10 +188,9 @@ export function summariseImageFindings(
     };
   }
 
-  const offenders = findings
-    .filter((f) => classifyFinding(f) === "offender")
-    .sort((a, b) => b.gainBytes! - a.gainBytes! || a.url.localeCompare(b.url));
-  const notEvaluated = findings.filter((f) => classifyFinding(f) === "not-evaluated");
+  const ordered = lineFindings(findings);
+  const offenders = ordered.filter((f) => classifyFinding(f) === "offender");
+  const notEvaluated = ordered.filter((f) => classifyFinding(f) === "not-evaluated");
   const evaluatedBytes =
     options.extraEvaluatedBytes +
     findings

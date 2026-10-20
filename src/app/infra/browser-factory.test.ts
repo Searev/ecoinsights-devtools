@@ -25,4 +25,14 @@ describe("getImageEstimator", () => {
     expect(first).toBeInstanceOf(Fake);
     expect(await factory.getImageEstimator()).toBe(first);
   });
+
+  it("also implements the variant generator port outside the extension", async () => {
+    vi.resetModules();
+    vi.stubGlobal("chrome", undefined);
+    const factory = await import("./browser-factory");
+    const estimator = await factory.getImageEstimator();
+    expect(typeof estimator.estimate).toBe("function");
+    expect(typeof estimator.loadOriginal).toBe("function");
+    expect(typeof estimator.generate).toBe("function");
+  });
 });

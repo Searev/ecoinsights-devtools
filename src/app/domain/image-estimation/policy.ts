@@ -18,6 +18,9 @@ export const GRADE_C_ABOVE_SHARE = 0.3;
 /** Maximum offender lines per rule, then "… et N autres images". */
 export const MAX_OFFENDER_LINES = 20;
 
+/** US-005: memory cap of the comparison cache (originals + variants), LRU (ARCH-DECISION-014). */
+export const COMPARISON_CACHE_MAX_BYTES = 50_000_000;
+
 /** US-002: recommended format per source format. Formats absent here are not converted. */
 export const RECOMMENDED_ENCODING: Partial<Record<ImageFormat, EncodingSpec>> = {
   jpeg: { format: "avif", quality: 65, speed: 6 },

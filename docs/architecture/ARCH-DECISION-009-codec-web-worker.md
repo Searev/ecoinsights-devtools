@@ -1,6 +1,7 @@
 # ARCH-DECISION-009: One lazily created, classic Web Worker in the DevTools panel runs the codecs
 
 - **Status:** Accepted (US-001 to US-003)
+- **Amended by:** [ARCH-DECISION-012](ARCH-DECISION-012-on-demand-variant-generation.md) (`inspect` and `generate` requests, US-005)
 
 ## Context
 

@@ -440,3 +440,43 @@ describe("dontResizeImagesRule.collect", () => {
     }
   });
 });
+
+describe("US-005: findings carry the natural size and the display box", () => {
+  const requests = [request(PHOTO, { transferSize: 240_000 })];
+  const page = pageOf([img()]);
+
+  it("S1: estimated finding has natural 1200x800, display 300x200 and sourceBytes", () => {
+    const r = ev(page, requests, lookupOf([[resizeJob(PHOTO, 600, 400), done(240_000, 60_000)]]));
+    expect(r.images![0].natural).toEqual({ width: 1200, height: 800 });
+    expect(r.images![0].display).toEqual({ width: 300, height: 200 });
+    expect(r.images![0].sourceBytes).toBe(240_000);
+  });
+
+  it("keeps natural and display whatever the state", () => {
+    const states: (EstimateState | undefined)[] = [
+      undefined,
+      { status: "failed", reason: "timeout" },
+      { status: "skipped", reason: "analysis-stopped" },
+    ];
+    for (const state of states) {
+      const f = ev(page, requests, () => state).images![0];
+      expect(f.natural).toEqual({ width: 1200, height: 800 });
+      expect(f.display).toEqual({ width: 300, height: 200 });
+      expect(f.sourceBytes).toBeUndefined();
+    }
+  });
+
+  it("keeps the CSS values as collected (no rounding) and the natural size of the largest box", () => {
+    const p = pageOf([
+      img({ displayWidth: 100.4, displayHeight: 50.2, naturalWidth: 1200, naturalHeight: 800 }),
+      img({ displayWidth: 300.5, displayHeight: 200.25, naturalWidth: 1200, naturalHeight: 800 }),
+    ]);
+    const f = ev(p, requests).images![0];
+    expect(f.display).toEqual({ width: 300.5, height: 200.25 });
+  });
+
+  it("a too-large finding also carries natural and display", () => {
+    const f = ev(page, [request(PHOTO, { transferSize: 10_000_001 })]).images![0];
+    expect(f).toMatchObject({ state: "skipped", natural: { width: 1200, height: 800 }, display: { width: 300, height: 200 } });
+  });
+});

@@ -21,7 +21,12 @@ import {
   summariseImageFindings,
 } from "./image-rule-helpers";
 
-/** Images of the page, from its network requests (US-002 §2.1): no collector needed. */
+/** One `<img>` of the page, only used to find the CSS box in which an image is displayed. */
+export type FormatPageData = {
+  images: Array<{ src: string; displayWidth: number; displayHeight: number }>;
+};
+
+/** Images of the page, from its network requests (US-002 §2.1); the collector only adds the display box (US-005). */
 function pageImages(requests: readonly NetworkRequest[]) {
   const byUrl = new Map<string, NetworkRequest>();
   for (const r of requests) {
@@ -41,6 +46,23 @@ function pageImages(requests: readonly NetworkRequest[]) {
   return { candidates, compliantBytes };
 }
 
+/** Largest CSS box (by area) per normalised URL; undefined when the page was not inspected. */
+function displayBoxes(
+  page: FormatPageData | undefined
+): Map<string, { width: number; height: number }> | undefined {
+  if (page === undefined) return undefined;
+  const boxes = new Map<string, { width: number; height: number }>();
+  for (const image of page.images) {
+    if (!image.src) continue;
+    const key = normaliseImageUrl(image.src);
+    const known = boxes.get(key);
+    if (known === undefined || image.displayWidth * image.displayHeight > known.width * known.height) {
+      boxes.set(key, { width: image.displayWidth, height: image.displayHeight });
+    }
+  }
+  return boxes;
+}
+
 const jobOf = (url: string, request: NetworkRequest): EstimationJob => ({
   url,
   declaredType: request.type,
@@ -50,16 +72,27 @@ const jobOf = (url: string, request: NetworkRequest): EstimationJob => ({
 const isTooLarge = (request: NetworkRequest) =>
   (originalBytesOf(request) ?? 0) > MAX_IMAGE_BYTES;
 
-export const optimisedFormatsRule: BestPracticeRule = {
+export const optimisedFormatsRule: BestPracticeRule<FormatPageData> = {
   id: OPTIMISED_FORMATS_RULE_ID,
   name: "Utiliser des formats d'image optimisés",
   category: "images",
+  collect: () => ({
+    images: Array.from(document.querySelectorAll("img")).map((img) => {
+      const box = img.getBoundingClientRect();
+      return {
+        src: img.currentSrc || img.src,
+        displayWidth: box.width,
+        displayHeight: box.height,
+      };
+    }),
+  }),
   estimations: ({ requests }) =>
     pageImages(requests)
       .candidates.filter((c) => !isTooLarge(c.request))
       .map((c) => jobOf(c.url, c.request)),
-  evaluate: ({ requests, estimates }) => {
+  evaluate: ({ requests, page, estimates }) => {
     const { candidates, compliantBytes } = pageImages(requests);
+    const boxes = displayBoxes(page);
     const findings: ImageFinding[] = candidates.map(({ url, request }) => {
       const base = { url, declaredType: request.type, target: undefined };
       const known = originalBytesOf(request);
@@ -69,6 +102,7 @@ export const optimisedFormatsRule: BestPracticeRule = {
       const finding = findingFromState(base, state, known);
       delete finding.target;
       if (state?.status === "estimated") finding.encoding = state.target;
+      if (boxes !== undefined) finding.display = boxes.get(url) ?? { width: 0, height: 0 };
       return finding;
     });
 

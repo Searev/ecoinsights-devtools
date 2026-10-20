@@ -1,5 +1,23 @@
 # Changelog
 
+## [Unreleased]: US-004 and US-005, image comparison
+
+### Added
+
+- **Image comparison dialog (US-005).** In both image rules, the name of each offending image is a button that opens a modal dialog.
+  - The toggle switches between "Originale" and the rule's optimised version: "Redimensionnée", "AVIF" or "WebP sans perte". An image flagged by both rules also offers "Les deux".
+  - Each version shows its resolution, weight, format and gain ("−144 ko (−60 %)"). The header shows the full URL.
+  - Versions are drawn at the image's size on the page by default; "Taille réelle" draws them at native resolution, keeping the scroll position between versions.
+  - Variants are generated on demand by the existing codec worker, with the estimation settings, so their size matches the estimate. This also works on saved analyses (the original is re-downloaded when needed).
+  - Generated images are kept in memory for the panel session (50 MB, least recently used first). Each version has its own loading and error state with "Réessayer".
+  - A notice tells when the image changed since the analysis.
+- **Shortened image names (US-004).** Long file names show as the first 12 characters, "...", the last 12 and the extension. The full name is in the tooltip and in the accessible name.
+
+### Changed
+
+- "Utiliser des formats d'image optimisés" now also reads the display size of the page's images (one more page script per collection). Its grade and lines are unchanged.
+- Image findings record the natural size, the display size and the byte length the estimator saw. Older analyses open the comparison in "Taille réelle".
+
 ## [Unreleased]: US-001 to US-003, image optimisation
 
 ### Added

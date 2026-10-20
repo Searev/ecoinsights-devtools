@@ -1,6 +1,7 @@
 # ARCH-DECISION-011: Image gain model: original weight, image identity, scope and combined page gain
 
 - **Status:** Accepted (US-001 to US-003)
+- **Amended by:** [ARCH-DECISION-013](ARCH-DECISION-013-comparison-subject-from-findings.md) (optional finding fields `natural`, `display`, `sourceBytes`, US-005)
 
 ## Context
 
