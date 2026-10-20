@@ -1,3 +1,6 @@
+/** HTTP version of a response, normalised from the HAR `response.httpVersion` (US-012). */
+export type HttpVersion = "1.0" | "1.1" | "2" | "3";
+
 export interface NetworkRequest {
   method: string;
   url: URL;
@@ -13,4 +16,14 @@ export interface NetworkRequest {
    * rule engine do not have it, and it is not required by the EcoIndex computation.
    */
   responseHeaders?: Record<string, string>;
+  /**
+   * US-012: protocol of the response. Undefined when unknown (empty or unrecognised HAR value),
+   * and in analyses saved before US-012. See ARCH-DECISION-019.
+   */
+  httpVersion?: HttpVersion;
+  /**
+   * US-009: time the request started, in epoch milliseconds (HAR `startedDateTime`). Undefined
+   * when unknown or unparseable, and in analyses saved before US-009. See ARCH-DECISION-019.
+   */
+  startedAt?: number;
 }

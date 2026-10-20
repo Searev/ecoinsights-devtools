@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { EstimationJob, UNAVAILABLE_ESTIMATES } from "../models/image-estimation";
-import { collectableRuleIds, evaluateRules, planEstimations } from "./engine";
+import { ContentJob, ContentLookup, UNAVAILABLE_CONTENTS } from "../models/text-content";
+import { collectableRuleIds, evaluateRules, planContentAnalyses, planEstimations } from "./engine";
 import { BestPracticeRule } from "./rule";
 
 function rule(
@@ -22,6 +23,31 @@ function rule(
 const input = { url: "https://example.com", requests: [], pageData: {} };
 
 describe("evaluateRules", () => {
+  it("copies lineRefs (ARCH-DECISION-017)", () => {
+    const lineRefs = [{ url: "https://x.test/a.js" }, null];
+    const res = evaluateRules(
+      [rule("a", { evaluate: () => ({ compliance: "C", detail: "d", offenders: ["a.js : x", "y"], lineRefs }) })],
+      input
+    );
+    expect(res[0].lineRefs).toEqual(lineRefs);
+  });
+
+  it("passes the contents lookup to the rules (ARCH-DECISION-018)", () => {
+    const contents: ContentLookup = () => ({ status: "analysed", characters: 10, removableCharacters: 1 });
+    let seen: ContentLookup | undefined;
+    evaluateRules([rule("a", { evaluate: (ctx) => ((seen = ctx.contents), { compliance: "A", detail: "" }) })], {
+      ...input,
+      contents,
+    });
+    expect(seen).toBe(contents);
+  });
+
+  it("defaults the contents lookup to UNAVAILABLE_CONTENTS", () => {
+    let seen: ContentLookup | undefined;
+    evaluateRules([rule("a", { evaluate: (ctx) => ((seen = ctx.contents), { compliance: "A", detail: "" }) })], input);
+    expect(seen).toBe(UNAVAILABLE_CONTENTS);
+  });
+
   it("returns one result per rule in registry order with rule metadata", () => {
     const rules = [
       rule("b", { category: "images" }),
@@ -218,5 +244,41 @@ describe("planEstimations", () => {
       pageData: { a: { ok: true, data: "A" }, b: { ok: false, error: "e" } },
     });
     expect(seen).toEqual(["A", "https://example.com", undefined]);
+  });
+});
+
+describe("planContentAnalyses", () => {
+  const contentJob = (url: string): ContentJob => ({ url, type: "JS" });
+
+  it("collects the jobs of every rule, deduplicated by content key", () => {
+    const rules = [
+      rule("a", { contentAnalyses: () => [contentJob("https://x.test/1.js"), contentJob("https://x.test/2.js")] }),
+      rule("b", { contentAnalyses: () => [contentJob("https://x.test/1.js#top"), contentJob("https://x.test/3.js")] }),
+      rule("c"),
+    ];
+    expect(planContentAnalyses(rules, input).map((j) => j.url)).toEqual([
+      "https://x.test/1.js",
+      "https://x.test/2.js",
+      "https://x.test/3.js",
+    ]);
+  });
+
+  it("ignores a rule whose contentAnalyses throws", () => {
+    const rules = [
+      rule("bad", {
+        contentAnalyses: () => {
+          throw new Error("x");
+        },
+      }),
+      rule("good", { contentAnalyses: () => [contentJob("https://x.test/1.js")] }),
+    ];
+    expect(planContentAnalyses(rules, input)).toHaveLength(1);
+  });
+
+  it("resolves the page data like evaluateRules", () => {
+    const seen: any[] = [];
+    const rules = [rule("a", { contentAnalyses: (ctx) => (seen.push(ctx.page, ctx.url), []) })];
+    planContentAnalyses(rules, { ...input, pageData: { a: { ok: true, data: "A" } } });
+    expect(seen).toEqual(["A", "https://example.com"]);
   });
 });

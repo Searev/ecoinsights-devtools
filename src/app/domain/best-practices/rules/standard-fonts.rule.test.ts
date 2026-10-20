@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { UNAVAILABLE_ESTIMATES } from "../../models/image-estimation";
 import { NetworkRequest } from "../../models/network-request";
+import { formatKo } from "./image-rule-helpers";
 import { standardFontsRule } from "./standard-fonts.rule";
 
 const req = (url: string, o: Partial<NetworkRequest> = {}): NetworkRequest => ({
@@ -31,6 +32,7 @@ describe("standardFontsRule.evaluate", () => {
     expect(r.compliance).toBe("A");
     expect(r.detail).toBe("0 police(s) téléchargée(s) (0 ko)");
     expect(r.offenders).toEqual([]);
+    expect(r.lineRefs).toBeUndefined();
   });
 
   it("is B for 1 or 2 files under 100 kB", () => {
@@ -61,7 +63,7 @@ describe("standardFontsRule.evaluate", () => {
   it("formats detail and offenders", () => {
     const r = ev([font("a.woff2", 40_000), font("b.woff2", 12_000)]);
     expect(r.detail).toBe("2 police(s) téléchargée(s) (52 ko)");
-    expect(r.offenders).toEqual(["https://x.test/a.woff2", "https://x.test/b.woff2"]);
+    expect(r.offenders).toEqual([`a.woff2 : ${formatKo(40_000)}`, `b.woff2 : ${formatKo(12_000)}`]);
   });
 
   it("appends loaded families when known", () => {
@@ -73,6 +75,50 @@ describe("standardFontsRule.evaluate", () => {
     const r = ev([font("a.woff2", 1)], undefined);
     expect(r.compliance).toBe("B");
     expect(r.detail).not.toContain(" : ");
+  });
+});
+
+describe("standardFontsRule.evaluate lines (US-018)", () => {
+  it("scenario 4: sorted by weight, largest first, grade and detail unchanged", () => {
+    const r = ev([font("a.woff2", 20_000), font("b.woff2", 98_000)]);
+    expect(r.offenders).toEqual([`b.woff2 : ${formatKo(98_000)}`, `a.woff2 : ${formatKo(20_000)}`]);
+    expect(r.compliance).toBe("C");
+    expect(r.detail).toBe("2 police(s) téléchargée(s) (118 ko)");
+  });
+
+  it("breaks ties by URL", () => {
+    const r = ev([font("b.woff2", 5), font("a.woff2", 5)]);
+    expect(r.offenders!.map((l) => l.split(" ")[0])).toEqual(["a.woff2", "b.woff2"]);
+  });
+
+  it("a cached font (transfer 0) shows its body size", () => {
+    const r = ev([font("c.woff2", 0, { responseSize: 30_000 })]);
+    expect(r.offenders).toEqual([`c.woff2 : ${formatKo(30_000)}`]);
+  });
+
+  it("collapses duplicates, ignoring the fragment, keeping the last request", () => {
+    const r = ev([font("a.woff2", 10_000), font("a.woff2#x", 20_000)]);
+    expect(r.offenders).toEqual([`a.woff2 : ${formatKo(20_000)}`]);
+    expect(r.lineRefs).toHaveLength(1);
+  });
+
+  it("caps at 20 lines then adds '… et 1 autre', with lineRefs aligned", () => {
+    const r = ev(Array.from({ length: 21 }, (_, i) => font(`f${String(i).padStart(2, "0")}.woff2`, 1_000)));
+    expect(r.offenders).toHaveLength(21);
+    expect(r.offenders![20]).toBe("… et 1 autre");
+    expect(r.lineRefs).toHaveLength(21);
+    expect(r.lineRefs![20]).toBeNull();
+    expect(r.detail).toContain("21 police(s)");
+  });
+
+  it("lineRefs carry the font preview", () => {
+    const r = ev([font("a.woff2", 1_000)]);
+    expect(r.lineRefs).toEqual([{ url: "https://x.test/a.woff2", preview: { kind: "font" } }]);
+  });
+
+  it("the detail still counts every request, duplicates included", () => {
+    const r = ev([font("a.woff2", 10_000), font("a.woff2", 10_000)]);
+    expect(r.detail).toBe("2 police(s) téléchargée(s) (20 ko)");
   });
 });
 

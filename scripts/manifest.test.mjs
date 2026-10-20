@@ -63,6 +63,18 @@ describe("merged manifests", () => {
     },
   );
 
+  it.each([["chrome", chrome], ["firefox", firefox]])(
+    "%s sets no media-src or font-src, so the previews can stream remote media and load fonts from bytes (ARCH-DECISION-023)",
+    (_n, m) => {
+      const directives = m.content_security_policy.extension_pages
+        .split(";")
+        .map((d) => d.trim().split(/\s+/)[0]);
+      expect(directives).not.toContain("media-src");
+      expect(directives).not.toContain("font-src");
+      expect(directives).not.toContain("connect-src");
+    },
+  );
+
   it("chrome requires Chrome 103 (wasm-unsafe-eval)", () => {
     expect(chrome.minimum_chrome_version).toBe("103");
   });

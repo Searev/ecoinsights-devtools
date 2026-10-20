@@ -6,6 +6,12 @@ import {
   estimationKey,
 } from "../models/image-estimation";
 import { NetworkRequest } from "../models/network-request";
+import {
+  ContentJob,
+  ContentLookup,
+  UNAVAILABLE_CONTENTS,
+  contentKey,
+} from "../models/text-content";
 import { BestPracticeRule, CollectOutcome } from "./rule";
 
 export interface EvaluationInput {
@@ -15,6 +21,8 @@ export interface EvaluationInput {
   pageData: Record<string, CollectOutcome>;
   /** Estimation cache view (ARCH-DECISION-007). Default: every estimation is unavailable. */
   estimates?: EstimateLookup;
+  /** Content-analysis cache view (ARCH-DECISION-018). Default: every file is not evaluated. */
+  contents?: ContentLookup;
 }
 
 function pageOf(rule: BestPracticeRule<any>, input: Pick<EvaluationInput, "pageData">) {
@@ -36,6 +44,7 @@ export function evaluateRules(
         requests: input.requests,
         page,
         estimates: input.estimates ?? UNAVAILABLE_ESTIMATES,
+        contents: input.contents ?? UNAVAILABLE_CONTENTS,
       });
       return {
         ...base,
@@ -44,6 +53,7 @@ export function evaluateRules(
         offenders: res.offenders,
         progress: res.progress,
         images: res.images,
+        lineRefs: res.lineRefs,
       };
     } catch (e) {
       return {
@@ -65,7 +75,7 @@ export function collectableRuleIds(
 /** Estimation jobs of every rule, deduplicated by `estimationKey`. A throwing rule is ignored. */
 export function planEstimations(
   rules: readonly BestPracticeRule<any>[],
-  input: Omit<EvaluationInput, "estimates">
+  input: Omit<EvaluationInput, "estimates" | "contents">
 ): EstimationJob[] {
   const jobs = new Map<string, EstimationJob>();
   for (const rule of rules) {
@@ -82,6 +92,31 @@ export function planEstimations(
       }
     } catch {
       // A broken rule must not prevent the others from being estimated.
+    }
+  }
+  return [...jobs.values()];
+}
+
+/** Content analysis jobs of every rule, deduplicated by `contentKey`. A throwing rule is ignored. */
+export function planContentAnalyses(
+  rules: readonly BestPracticeRule<any>[],
+  input: Omit<EvaluationInput, "estimates" | "contents">
+): ContentJob[] {
+  const jobs = new Map<string, ContentJob>();
+  for (const rule of rules) {
+    if (typeof rule.contentAnalyses !== "function") continue;
+    try {
+      const planned = rule.contentAnalyses({
+        url: input.url,
+        requests: input.requests,
+        page: pageOf(rule, input),
+      });
+      for (const job of planned) {
+        const key = contentKey(job);
+        if (!jobs.has(key)) jobs.set(key, job);
+      }
+    } catch {
+      // A broken rule must not prevent the others from being analysed.
     }
   }
   return [...jobs.values()];

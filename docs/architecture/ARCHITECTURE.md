@@ -30,8 +30,14 @@ flowchart LR
     BYTES -->|getResourceContent| EB
     BYTES -->|"fetch(force-cache)"| WEB[(HTTP cache / network)]
     WIE -->|postMessage| WK[["infra/image-codec<br/>codec.worker (WASM)"]]
-    UI -->|useImageComparison| CMP[ui/analysis/comparison<br/>dialog + controller]
-    CMP --> VS[domain/image-comparison<br/>variant store, LRU]
+    UI -->|useAppDialog| DLG[ui/analysis/dialog<br/>one dialog host]
+    DLG --> CMP[ui/analysis/comparison<br/>body + controller]
+    DLG --> PRV[ui/analysis/preview<br/>image, media, iframe, font bodies]
+    CMP --> VS[domain/image-comparison<br/>variant store, session LRU]
+    PRV --> PS[domain/file-preview<br/>preview store, same LRU]
+    PS -->|PreviewFileLoader| PFL[infra/file-preview<br/>loader, header parsers]
+    PFL -->|getResourceContent| EB
+    PFL -->|"fetch(force-cache)"| WEB
     VS -->|ImageVariantGenerator| WIE
     EB --> HAR[infra/har.ts]
     EB -->|chrome.devtools.network| NET[(DevTools network)]
@@ -52,6 +58,9 @@ ui/  ──►  domain/  ◄──  infra/
            │  best-practices/ (rule.ts, engine.ts, index.ts, rules/*.rule.ts)
            │  image-estimation/ (policy, estimation-queue, image-gain, image-requests, signature)
            │  image-comparison/ (comparison-subject, variant-store, lru-byte-cache)
+           │  work-queue/ (generic keyed FIFO queue, ARCH-DECISION-018)
+           │  text-content/ (minification scanner, content queue, policy)
+           │  file-preview/ (preview subjects, preview file store, policy; EPIC-PV)
 ```
 
 - `domain/` never references `chrome`/`browser` and never imports `infra/` or `ui/`. ESLint enforces this.
@@ -131,7 +140,7 @@ Decisions: [ARCH-DECISION-012](ARCH-DECISION-012-on-demand-variant-generation.md
 2. **Comparison subject** (`domain/image-comparison/comparison-subject.ts`): for an offender line, `comparisonSubjectFor(page.bestPractices, ruleId, url)` gives the versions to toggle (Originale, Redimensionnée, AVIF / WebP sans perte, Les deux) with their `EstimationJob`s, plus the natural size, display box and recorded weight from the findings (`ImageFinding.natural`, `display`, `sourceBytes`). The format rule has a page collector only for the display boxes.
 3. **Variant store** (`domain/image-comparison/variant-store.ts`): one per panel session, created in `index.tsx`. It caches originals and variants in a 50 MB LRU, shares in-flight work (which completes after the dialog closed) and never caches errors.
 4. **Generation:** `WorkerImageEstimator` also implements the `ImageVariantGenerator` port. `loadOriginal` uses the same bytes source as the estimation and sends an `inspect` request; `generate` sends a `generate` request with a copy of the original. The worker runs `createImagePipeline(codecs)`: `estimate`, `inspect` and `generate` share one core, so a generated size equals the estimate.
-5. **Dialog** (`ui/analysis/comparison/`): `ImageComparisonProvider` renders one native `<dialog>` for the app; `createComparisonController` (pure) holds the per-version `idle | loading | loaded | error` states, the selected version and the display mode, ignores late results after close, and creates/revokes the object URLs.
+5. **Dialog** (`ui/analysis/comparison/`): since EPIC-PV, the comparison is one body (`ComparisonBody`) of the app dialog host (§3.7, ARCH-DECISION-021); `createComparisonController` (pure) holds the per-version `idle | loading | loaded | error` states, the selected version and the display mode, ignores late results after close, and creates/revokes the object URLs.
 
 ```mermaid
 sequenceDiagram
@@ -152,11 +161,68 @@ sequenceDiagram
   S-->>C: loaded → object URL → <img>
 ```
 
+### 3.6 BP2 rules and text content analysis (US-006 to US-014)
+
+Decisions: [ARCH-DECISION-017](ARCH-DECISION-017-line-refs-for-file-names.md) (line references), [018](ARCH-DECISION-018-text-content-analysis.md) (text content analysis), [019](ARCH-DECISION-019-request-model-protocol-and-start-time.md) (`httpVersion`, `startedAt`).
+
+1. **Rules:** nine more `BestPracticeRule`s in `RULES`.
+   - Three have collectors: alternatives, lazy loading, autoplay.
+   - Five read only the requests: compression, cache headers, domains, HTTP/2, GIF.
+   - Shared helpers: `rules/request-helpers.ts`, and `rules/rule-lines.ts` (`fileLine`, `capLines`: 20 lines + "… et N autres").
+2. **Line references:** lines naming a file carry `BestPractice.lineRefs[i] = { url, prefix? }`. `best-practices-view.ts` renders them as `prefix + <ImageName> + rest`, and falls back to text on any mismatch.
+3. **Minification (US-010):**
+   - The rule declares `contentAnalyses()` jobs. `analyse-web-flow` queues them in a second `WorkQueue` (`domain/work-queue/`, also behind `EstimationQueue`), keyed by URL, concurrency 1.
+   - The `ContentAnalyser` port (`infra/content-analyser/devtools-content-analyser.ts`) reads `ExtensionBrowser.getResourceContent` only, with no `fetch`. It decodes base64 or text with the response charset and feeds the pure streaming scanner (`domain/text-content/minification.ts`) in 256 Ki slices, yielding between slices.
+   - `evaluate` reads `ctx.contents` and shows "Analyse en cours… (n/N fichiers)" (`progress.unit = "files"`) while files are pending.
+   - Stop settles pending files as `analysis-stopped`.
+
+### 3.7 Previews of the flagged elements (US-015 to US-018)
+
+Decisions: [ARCH-DECISION-020](ARCH-DECISION-020-preview-subjects-from-line-refs.md) (preview subjects from line references), [021](ARCH-DECISION-021-app-dialog-host.md) (app dialog host), [022](ARCH-DECISION-022-preview-file-bytes.md) (preview bytes, session cache), [023](ARCH-DECISION-023-media-and-font-previews-csp.md) (media, fonts, CSP).
+
+1. **What a line previews.**
+   - Rules set `LineRef.preview` (`image` / `video` / `audio` / `iframe` / `font`) through `fileLine(url, rest, prefix, preview)`, with the element's CSS box (`display`) or the iframe position (`top`).
+   - US-006, US-007 and US-014 read the box with their existing collectors (one `getBoundingClientRect` per element). US-013 has a collector for the largest `<img>` box per URL.
+   - Refs saved before the epic fall back to the rule and prefix (`legacyLinePreview`). Unprefixed US-006 lines stay plain, because they are ambiguous with `<area>`.
+2. **Subject.**
+   - `best-practices-view.ts` builds one `createPreviewSubjectResolver(page.requests)` per page, lazily. It turns each file line's ref into a `PreviewSubject`, or undefined for non-`http(s)` URLs and unknown kinds.
+   - The subject carries the recorded MIME type, the media bytes downloaded by the page (sum over its requests, `206` included), the last status, and the iframe document weight.
+3. **Dialog host** (`ui/analysis/dialog/`).
+   - `AppDialogProvider` (mounted once in `index.tsx`) owns the single `<dialog>`, the header (short name, full URL), "Fermer", Escape, the backdrop and focus return (`data-dialog-key`).
+   - The pure `createDialogHost` refuses a second opening. A body is mounted per opening, after `showModal()`, and unmounted on close.
+   - `ImageName` opens a comparison (image rules) or a preview (file lines) through `useAppDialog()`.
+4. **Bodies** (`ui/analysis/preview/`). Each has a pure controller with `idle | loading | loaded | error` states that ignores late results after close:
+   - **image:** `PreviewFileStore`, then a `blob:` URL, then `<img>`; the browser decodes every format;
+   - **media:** native `<video>` / `<audio>` with `preload="metadata"`, no autoplay, and `releaseMedia` on close;
+   - **iframe:** data only, never an `<iframe>`;
+   - **font:** `FontFace` from the bytes, in the panel's `document.fonts` only, released on close.
+5. **Bytes** (`infra/file-preview/preview-file-loader.ts`).
+   - DevTools content first (base64, Firefox base64 without encoding, SVG as text), else `fetch(url, { cache: "force-cache" })` from the panel.
+   - Capped at 25 MB with a streamed read; nothing is decoded over the cap.
+   - Pure header parsers give the format, the size (GIF, BMP, ICO, SVG root, and `readDimensions`), the GIF animation flag and the font format.
+   - `PreviewFileStore` caches files in the session LRU it shares with the comparison (`createSessionFileCache`, 50 MB).
+
+```mermaid
+sequenceDiagram
+  participant L as File name button
+  participant H as Dialog host
+  participant B as Preview body + controller
+  participant S as Preview store (session LRU)
+  participant F as Preview file loader
+  L->>H: openPreview(subject)
+  H->>H: showModal(), then mount body
+  B->>S: peekImage / image(url)
+  S->>F: loadImage (DevTools content, else fetch force-cache, ≤ 25 MB)
+  F-->>S: bytes + info (header parsing)
+  S-->>B: loaded → blob: URL → <img>
+  H->>B: close → unmount → revoke URL / release font / stop media
+```
+
 ## 4. Build
 
 `npm run build` → `dist/chrome/` and `dist/firefox/` (+ zips). The manifest is generated from `src/manifest/base.json` plus a per-target overlay. Only the `background` key, Chrome's `minimum_chrome_version` (103) and Firefox's `browser_specific_settings` differ.
 
-- **CSP:** both targets get `script-src 'self' 'wasm-unsafe-eval'; object-src 'self'` for extension pages, which is needed to compile WASM. This is why Chrome needs version 103 or later. It deliberately has no `img-src` and no `default-src`, so the comparison dialog can display `blob:` images; `scripts/manifest.test.mjs` asserts it (ARCH-DECISION-016).
+- **CSP:** both targets get `script-src 'self' 'wasm-unsafe-eval'; object-src 'self'` for extension pages, which is needed to compile WASM. This is why Chrome needs version 103 or later. It deliberately has no `img-src`, `default-src`, `media-src`, `font-src` or `connect-src`, so the dialogs can display `blob:` images, stream remote media, register fonts from bytes and re-download files; `scripts/manifest.test.mjs` asserts it (ARCH-DECISION-016, 023).
 - **Codec worker:** Vite builds it as a classic IIFE (`worker.format: "iife"`) and emits each codec `.wasm` as a separate asset, about 5.9 MB per target. They are loaded only when an estimation needs them. `optimizeDeps.exclude` keeps the `@jsquash/*` packages out of the dev pre-bundle.
 - **Type-checking:** `tsconfig.json` adds `@jsquash/jpeg/emscripten-types.d.ts` to `files`, because the glue files imported directly need its global `EmscriptenWasm` namespace (ARCH-DECISION-008).
 

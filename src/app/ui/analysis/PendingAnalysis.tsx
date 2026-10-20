@@ -9,6 +9,7 @@ import {
 } from "solid-js";
 import { useBrowser } from "../../infra/browser-context";
 import { useImageEstimator } from "../../infra/estimator-context";
+import { useContentAnalyser } from "../../infra/content-analyser-context";
 import { describeStartError } from "./start-error";
 import Loader from "../shared/Loader/Loader";
 import { useEcoInsightsStore } from "../../store";
@@ -29,6 +30,7 @@ const PendingAnalysis: Component = () => {
   const store = useEcoInsightsStore();
   const browser = useBrowser();
   const imageEstimator = useImageEstimator();
+  const contentAnalyser = useContentAnalyser();
   const analysis = store!.store.analysis.find((el) => el.id === params.id);
 
   const [pagesAnalysed, setAnalysis] = createSignal<PageAnalysis[]>([]);
@@ -52,7 +54,7 @@ const PendingAnalysis: Component = () => {
       browser,
       flowParams,
       (pages) => setAnalysis(pages),
-      { imageEstimator }
+      { imageEstimator, contentAnalyser }
     ).then(
       (flow) => {
         if (disposed) {

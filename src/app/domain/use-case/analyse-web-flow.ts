@@ -14,9 +14,13 @@ import { RULES } from "../best-practices";
 import {
   collectableRuleIds,
   evaluateRules,
+  planContentAnalyses,
   planEstimations,
 } from "../best-practices/engine";
 import { ImageEstimator } from "../models/image-estimator";
+import { ContentAnalyser } from "../models/content-analyser";
+import { ContentOutcome } from "../models/text-content";
+import { ContentQueue, createContentQueue } from "../text-content/content-queue";
 import { PageImageGain } from "../models/image-estimation";
 import {
   EstimationQueue,
@@ -45,6 +49,11 @@ export interface WebFlowAnalysisOptions {
    * estimation is `failed(estimator-unavailable)` and the image rules show "Non évaluée".
    */
   imageEstimator?: ImageEstimator;
+  /**
+   * Measures captured text contents for the minification rule (US-010, ARCH-DECISION-018). When
+   * absent, every file is `not-evaluated(analyser-unavailable)` and the rule shows "Non évaluée".
+   */
+  contentAnalyser?: ContentAnalyser;
 }
 
 export interface WebFlowAnalysis {
@@ -55,7 +64,8 @@ export interface WebFlowAnalysis {
   stopCurrentNavigation(): void;
   /**
    * Stops the analysis, and closes all active listeners and timers. Idempotent.
-   * Pending image estimations become `skipped(analysis-stopped)` (US-001 scenario 12).
+   * Pending image estimations become `skipped(analysis-stopped)` (US-001 scenario 12) and pending
+   * content analyses `not-evaluated(analysis-stopped)` (US-010 scenario 10).
    * @returns the final page analyses, to be saved as is.
    */
   stopAnalysis(): PageAnalysis[];
@@ -94,6 +104,14 @@ interface ClosedPage {
 /** Estimator used when none is injected: every estimation fails, the image rules show "Non évaluée". */
 const unavailableEstimator: ImageEstimator = {
   estimate: async () => ({ status: "failed", reason: "estimator-unavailable" }),
+};
+
+/** Analyser used when none is injected: every file is not evaluated, the rule shows "Non évaluée". */
+const unavailableAnalyser: ContentAnalyser = {
+  analyse: async (): Promise<ContentOutcome> => ({
+    status: "not-evaluated",
+    reason: "analyser-unavailable",
+  }),
 };
 
 function newPage(info: PageInfos | null, seed: boolean): CurrentPage {
@@ -161,18 +179,24 @@ export default async function analyseWebFlow(
   const queue: EstimationQueue | undefined = params.checkBestPractices
     ? createEstimationQueue(options.imageEstimator ?? unavailableEstimator)
     : undefined;
-  /** Incremented on every queue change; closed pages are rebuilt only when it moved. */
+  /** Same for the text contents (US-010). */
+  const contentQueue: ContentQueue | undefined = params.checkBestPractices
+    ? createContentQueue(options.contentAnalyser ?? unavailableAnalyser)
+    : undefined;
+  /** Incremented on every change of either queue; closed pages are rebuilt only when it moved. */
   let queueVersion = 0;
-  let queueSubscription: Closeable | undefined;
+  const queueSubscriptions: Closeable[] = [];
 
   const evaluatePage = (
     snapshot: EvaluationSnapshot
   ): { bestPractices: BestPractice[]; imageGain?: PageImageGain } => {
     if (queue === undefined) return { bestPractices: [] };
     queue.request(planEstimations(rules, snapshot));
+    contentQueue?.request(planContentAnalyses(rules, snapshot));
     const bestPractices = evaluateRules(rules, {
       ...snapshot,
       estimates: queue.lookup,
+      contents: contentQueue?.lookup,
     });
     const combined = {
       requests: snapshot.requests,
@@ -218,11 +242,14 @@ export default async function analyseWebFlow(
     if (!stopped) consume([...closedPages(), buildCurrent()]);
   };
 
-  if (queue !== undefined) {
-    queueSubscription = queue.onChange(() => {
-      queueVersion++;
-      sendAnalysis();
-    });
+  for (const changing of [queue, contentQueue]) {
+    if (changing === undefined) continue;
+    queueSubscriptions.push(
+      changing.onChange(() => {
+        queueVersion++;
+        sendAnalysis();
+      })
+    );
   }
 
   /** Collects the page data of the current page. Never rejects; stale results are dropped. */
@@ -374,7 +401,8 @@ export default async function analyseWebFlow(
         listeners.forEach((listener) => listener.close());
         // Settles the pending estimations; `stopped` keeps the notification away from `consume`.
         queue?.stop();
-        queueSubscription?.close();
+        contentQueue?.stop();
+        queueSubscriptions.forEach((subscription) => subscription.close());
         browser.log("Analyse terminée");
         finalPages =
           page.info == null

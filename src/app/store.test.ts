@@ -148,3 +148,24 @@ describe("isQuotaExceeded", () => {
     expect(isQuotaExceeded(null)).toBe(false);
   });
 });
+
+describe("legacy requests without httpVersion or startedAt (US-012 scenario 8)", () => {
+  it("loads without error and keeps the stored best practices unchanged", () => {
+    const parsed = parseStoredData(legacy);
+    const page = parsed.analysis[0].pages[0];
+    expect(page.requests[0].httpVersion).toBeUndefined();
+    expect(page.requests[0].startedAt).toBeUndefined();
+    expect(page.bestPractices).toEqual([
+      { id: "old", name: "Old", category: "content", compliance: "B", detail: "d" },
+      { id: "new", name: "New", category: "images", compliance: "A", detail: "d" },
+    ]);
+  });
+
+  it("round-trips httpVersion and startedAt when present", () => {
+    const data = JSON.parse(legacy);
+    Object.assign(data.analysis[0].pages[0].requests[0], { httpVersion: "2", startedAt: 1760000000000 });
+    const parsed = parseStoredData(JSON.stringify(data));
+    const again = parseStoredData(serializeStoredData(parsed.services, parsed.analysis));
+    expect(again.analysis[0].pages[0].requests[0]).toMatchObject({ httpVersion: "2", startedAt: 1760000000000 });
+  });
+});

@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { toNetworkRequest } from "./har";
+import { normaliseHttpVersion, toNetworkRequest } from "./har";
 
 function entry(overrides: any = {}): HARFormatEntry {
   return {
+    ...(overrides.startedDateTime !== undefined && { startedDateTime: overrides.startedDateTime }),
     request: { method: "GET", url: "https://example.org/a.css", ...overrides.request },
     response: {
       status: 200,
@@ -75,5 +76,90 @@ describe("toNetworkRequest", () => {
       })
     );
     expect(r?.responseHeaders).toEqual({ "cache-control": "max-age=1", "set-cookie": "a=1, b=2" });
+  });
+});
+
+describe("normaliseHttpVersion (US-012 scenario 5)", () => {
+  it.each([
+    ["HTTP/1.0", "1.0"],
+    ["http/1.0", "1.0"],
+    ["HTTP/1.1", "1.1"],
+    ["http/1.1", "1.1"],
+    ["HTTP/2", "2"],
+    ["HTTP/2.0", "2"],
+    ["http/2.0", "2"],
+    ["h2", "2"],
+    ["h2c", "2"],
+    ["HTTP/3", "3"],
+    ["h3", "3"],
+    ["h3-29", "3"],
+    ["h3-Q050", "3"],
+    ["  H2  ", "2"],
+    ["", undefined],
+    ["unknown", undefined],
+    ["spdy/3.1", undefined],
+    [undefined, undefined],
+    [null, undefined],
+    [2, undefined],
+  ])("%j -> %j", (raw, expected) => {
+    expect(normaliseHttpVersion(raw)).toBe(expected);
+  });
+});
+
+describe("toNetworkRequest httpVersion and startedAt (ARCH-DECISION-019)", () => {
+  it("normalises a Chrome-like entry: http/2.0, _transferSize, lower-case headers", () => {
+    const r = toNetworkRequest(
+      entry({
+        startedDateTime: "2026-10-20T10:00:00.500Z",
+        response: {
+          httpVersion: "http/2.0",
+          _transferSize: 321,
+          headers: [{ name: "content-encoding", value: "br" }],
+        },
+      })
+    );
+    expect(r?.httpVersion).toBe("2");
+    expect(r?.startedAt).toBe(Date.parse("2026-10-20T10:00:00.500Z"));
+    expect(r?.transferSize).toBe(321);
+    expect(r?.responseHeaders).toEqual({ "content-encoding": "br" });
+  });
+
+  it("normalises h3 from Chrome", () => {
+    expect(toNetworkRequest(entry({ response: { httpVersion: "h3" } }))?.httpVersion).toBe("3");
+  });
+
+  it("normalises a Firefox-like entry: HTTP/2, mixed-case Content-Encoding, no _transferSize", () => {
+    const r = toNetworkRequest(
+      entry({
+        startedDateTime: "2026-10-20T10:00:01.000+02:00",
+        response: {
+          httpVersion: "HTTP/2",
+          headers: [
+            { name: "Content-Encoding", value: "GZIP" },
+            { name: "Cache-Control", value: "max-age=60" },
+          ],
+        },
+      })
+    );
+    // US-008: Firefox exposes content-encoding; the name is lower-cased, the value is kept as is.
+    expect(r?.responseHeaders?.["content-encoding"]).toBe("GZIP");
+    expect(r?.responseHeaders).not.toHaveProperty("Content-Encoding");
+    expect(r?.httpVersion).toBe("2");
+    expect(r?.transferSize).toBe(150);
+    expect(r?.startedAt).toBe(Date.parse("2026-10-20T08:00:01.000Z"));
+    expect(
+      toNetworkRequest(entry({ response: { httpVersion: "HTTP/1.1" } }))?.httpVersion
+    ).toBe("1.1");
+  });
+
+  it("omits both keys when unknown or unparseable", () => {
+    const r = toNetworkRequest(
+      entry({ startedDateTime: "not a date", response: { httpVersion: "unknown" } })
+    )!;
+    expect("httpVersion" in r).toBe(false);
+    expect("startedAt" in r).toBe(false);
+    const none = toNetworkRequest(entry())!;
+    expect(Object.keys(none)).not.toContain("httpVersion");
+    expect(Object.keys(none)).not.toContain("startedAt");
   });
 });

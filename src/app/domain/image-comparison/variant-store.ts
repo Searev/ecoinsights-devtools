@@ -2,14 +2,13 @@
  * Session cache of originals and variants for the comparison dialog (ARCH-DECISION-014).
  * Pure: the bytes come from an injected `ImageVariantGenerator`.
  */
-import { COMPARISON_CACHE_MAX_BYTES } from "../image-estimation/policy";
 import { EstimationJob, estimationKey } from "../models/image-estimation";
 import {
   ImageFileResult,
   ImageVariantGenerator,
   ImageVariantStore,
 } from "../models/image-variants";
-import { createLruByteCache } from "./lru-byte-cache";
+import { SessionFileCache, createSessionFileCache } from "./session-file-cache";
 
 type LoadedFile = Extract<ImageFileResult, { status: "loaded" }>;
 
@@ -21,14 +20,20 @@ function messageOf(reason: unknown): string | undefined {
   return reason instanceof Error ? reason.message : undefined;
 }
 
+/**
+ * `cache`: the session file cache shared with the previews (EPIC-PV §5); without it, the store owns
+ * a cache of `maxBytes` (default `COMPARISON_CACHE_MAX_BYTES`).
+ */
 export function createImageVariantStore(
   generator: ImageVariantGenerator,
-  options: { maxBytes?: number } = {}
+  options: { maxBytes?: number; cache?: SessionFileCache } = {}
 ): ImageVariantStore {
-  const cache = createLruByteCache<LoadedFile>(
-    options.maxBytes ?? COMPARISON_CACHE_MAX_BYTES,
-    (file) => file.bytes.byteLength
-  );
+  const files = options.cache ?? createSessionFileCache(options.maxBytes);
+  // Keys are prefixed "original:" / "variant:": this store only reads values it wrote.
+  const cache = {
+    get: (key: string) => files.get(key) as LoadedFile | undefined,
+    set: (key: string, value: LoadedFile) => files.set(key, value),
+  };
   // In-flight work is held here, not by the callers, so it completes after every caller went away.
   const loading = new Map<string, Promise<ImageFileResult>>();
 

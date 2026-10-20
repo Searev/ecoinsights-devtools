@@ -2,6 +2,7 @@ import {
   BestPracticeCategory,
   BestPracticeCompliance,
   BestPracticeId,
+  LineRef,
 } from "../models/best-practice";
 import {
   EstimateLookup,
@@ -10,6 +11,7 @@ import {
   ImageFinding,
 } from "../models/image-estimation";
 import { NetworkRequest } from "../models/network-request";
+import { ContentJob, ContentLookup } from "../models/text-content";
 
 /**
  * Outcome of running one rule collector in the inspected page.
@@ -36,6 +38,13 @@ export interface RuleContext<TPage> extends PlanningContext<TPage> {
    * answering `failed(estimator-unavailable)` when no estimator is wired.
    */
   estimates: EstimateLookup;
+  /**
+   * Read-only view of the content-analysis cache (ARCH-DECISION-018, US-010). Always set by the
+   * engine (default: every file `not-evaluated(analyser-unavailable)`); optional so that contexts
+   * built by hand for rules that do not read contents stay valid. Rules treat undefined like
+   * `UNAVAILABLE_CONTENTS`.
+   */
+  contents?: ContentLookup;
 }
 
 export interface RuleResult {
@@ -47,6 +56,8 @@ export interface RuleResult {
   progress?: EstimationProgress;
   /** Image rules only: one entry per image that needed an estimation. */
   images?: ImageFinding[];
+  /** One per `offenders` line, same order (ARCH-DECISION-017). Build with `capLines` (rule-lines.ts). */
+  lineRefs?: (LineRef | null)[];
 }
 
 /**
@@ -70,6 +81,12 @@ export interface BestPracticeRule<TPage = undefined> {
    * page whenever an estimate settles. Called on every evaluation: it must be cheap.
    */
   estimations?(context: PlanningContext<TPage>): EstimationJob[];
-  /** Pure: no I/O, no state, no `chrome`, no `document`. Reads estimates through `context.estimates`. */
+  /**
+   * Optional, pure and synchronous (ARCH-DECISION-018): the text files whose captured content this
+   * rule needs measured. Queued and cached by `contentKey` like estimations; read back through
+   * `context.contents`. Called on every evaluation: it must be cheap.
+   */
+  contentAnalyses?(context: PlanningContext<TPage>): ContentJob[];
+  /** Pure: no I/O, no state, no `chrome`, no `document`. Reads estimates through `context.estimates`, contents through `context.contents`. */
   evaluate(context: RuleContext<TPage>): RuleResult;
 }

@@ -1,4 +1,4 @@
-import { For, Show, createSignal } from "solid-js";
+import { For, Match, Show, Switch, createSignal } from "solid-js";
 import {
   BestPracticeCompliance,
   BestPracticeId,
@@ -113,22 +113,35 @@ export function BestPractices(props: { pagesAnalysed: PageAnalysis[] }) {
               <ul class="list-disc mb-2">
                 <For each={itemProps.item.lines}>
                   {(line) => (
-                    <Show
-                      when={line.kind === "image" ? line : undefined}
-                      fallback={<li class="ml-4 break-all">{line.text}</li>}
-                    >
-                      {(image) => (
-                        <li class="ml-4">
-                          <ImageName
-                            name={image().name}
-                            comparison={image().comparison}
-                            ruleId={image().ruleId}
-                            url={image().url}
-                          />
-                          <span class="break-all">{" : "}{image().rest}</span>
-                        </li>
-                      )}
-                    </Show>
+                    <Switch fallback={<li class="ml-4 break-all">{line.text}</li>}>
+                      <Match when={line.kind === "image" ? line : undefined}>
+                        {(image) => (
+                          <li class="ml-4">
+                            <ImageName
+                              name={image().name}
+                              comparison={image().comparison}
+                              ruleId={image().ruleId}
+                              url={image().url}
+                            />
+                            <span class="break-all">{" : "}{image().rest}</span>
+                          </li>
+                        )}
+                      </Match>
+                      <Match when={line.kind === "file" ? line : undefined}>
+                        {(file) => (
+                          <li class="ml-4">
+                            {file().prefix}
+                            <ImageName
+                              name={file().name}
+                              preview={file().preview}
+                              ruleId={file().ruleId}
+                              url={file().url}
+                            />
+                            <span class="break-all">{file().rest}</span>
+                          </li>
+                        )}
+                      </Match>
+                    </Switch>
                   )}
                 </For>
               </ul>

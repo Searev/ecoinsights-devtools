@@ -5,22 +5,39 @@ import { RULES } from "./index";
 const CATEGORIES = ["content", "images", "fonts", "network", "css", "js"];
 
 describe("RULES registry", () => {
-  it("registers the four rules in order", () => {
+  it("registers the thirteen rules in order (EPIC-BP2 after the first four)", () => {
     expect(RULES.map((r) => r.id)).toEqual([
       "PrintStyleSheet",
       "DontResizeImagesInBrowser",
       "UseOptimizedImageFormats",
       "UseStandardFonts",
+      "ProvideTextAlternatives",
+      "UseLazyLoading",
+      "CompressTextFiles",
+      "AddCacheHeaders",
+      "MinifyTextFiles",
+      "LimitDomains",
+      "PreferHttp2",
+      "LimitGifs",
+      "AvoidMediaAutoplay",
     ]);
   });
 
-  it("the print, resize, format and fonts rules have a collector", () => {
+  it("the print, resize, format, fonts, BP2 DOM and GIF (display boxes, EPIC-PV) rules have a collector", () => {
     expect(RULES.filter((r) => r.collect).map((r) => r.id)).toEqual([
       "PrintStyleSheet",
       "DontResizeImagesInBrowser",
       "UseOptimizedImageFormats",
       "UseStandardFonts",
+      "ProvideTextAlternatives",
+      "UseLazyLoading",
+      "LimitGifs",
+      "AvoidMediaAutoplay",
     ]);
+  });
+
+  it("only the minification rule declares content analyses", () => {
+    expect(RULES.filter((r) => r.contentAnalyses).map((r) => r.id)).toEqual(["MinifyTextFiles"]);
   });
 
   it("has unique ids", () => {

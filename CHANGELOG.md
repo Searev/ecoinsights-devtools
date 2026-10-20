@@ -1,5 +1,54 @@
 # Changelog
 
+## [Unreleased]: US-015 to US-018, epic PV (preview the flagged elements)
+
+### Added
+
+- **Clickable file names.** The shortened name of a line is a button opening a preview, in "Fournir une alternative textuelle aux contenus multimédias", "Utiliser le chargement paresseux", "Limiter l'utilisation des GIFs animés", "Éviter la lecture et le chargement automatique des vidéos et des sons" and "Utiliser des polices standards".
+  - Lines without a file, `<area>` lines, and `blob:` and `data:` URLs stay plain text.
+- **Image preview (US-015).**
+  - It works for every format the browser displays (JPEG, PNG, WebP, AVIF, GIF with animation, SVG, BMP, ICO).
+  - It shows the resolution read from the file, the format (including "GIF animé") and the weight.
+  - The image is drawn at its size on the page, or in "Taille réelle". "Image non affichée sur la page" is shown when it has no box.
+  - Files over 25 MB are refused without being decoded.
+- **Video and sound preview (US-016).**
+  - The native player loads metadata only, never autoplays, and stops playback and the download on close.
+  - It shows the resolution, the duration ("1 min 32 s"), the format and the weight downloaded by the page, partial `206` responses included.
+- **Iframe data (US-017).** The host, the document type, the transferred weight and the position on the page. The iframe is never loaded.
+- **Font preview (US-018).**
+  - It shows the Voltaire sample at 32 px, in the downloaded font or in the "Sans-serif", "Serif" and "Mono" system stacks, with the format and the weight.
+  - The font is registered only in the extension panel and removed on close.
+- One dialog for the whole app hosts the comparison and every preview: Escape, a backdrop click and "Fermer" close it, and focus returns to the clicked name.
+- Previewed files share the comparison's session cache (50 MB, least recently used first), so reopening is instant.
+
+### Changed
+
+- "Utiliser des polices standards" lists "file name : weight", one line per file, heaviest first, at most 20 lines. Its grade and detail are unchanged. Analyses saved earlier keep their URL lines.
+- "Limiter l'utilisation des GIFs animés" now reads the display size of the page's images (one more page script per collection). The other three rules also record the CSS box of their elements. Grades and line texts are unchanged.
+- The README privacy section covers the previews: images and fonts may be re-downloaded from the HTTP cache, playing a medium downloads it from the panel, and nothing is stored or sent to a third party.
+
+## [Unreleased]: US-006 to US-014, epic BP2 (nine new best practices)
+
+### Added
+
+- Nine best practices, graded per page (a page with nothing in scope is A):
+  - **"Fournir une alternative textuelle aux contenus multimédias"** (`ProvideTextAlternatives`, US-006): images, image inputs, `area` and videos without a text alternative are C; an empty `alt` is B ("à vérifier"); decorative ARIA and tracking pixels are ignored.
+  - **"Utiliser le chargement paresseux"** (`UseLazyLoading`, US-007): images and iframes below the initial screen loaded eagerly; one gives B, more give C. Script-based lazy loading (`data-src`) counts as lazy.
+  - **"Compresser les fichiers textuels"** (`CompressTextFiles`, US-008): HTML, CSS, JS and SVG files of 1 kB or more without `content-encoding` (C) or with `deflate` (B).
+  - **"Ajouter des entêtes Expires ou Cache-Control"** (`AddCacheHeaders`, US-009): static files whose headers do not allow caching (`no-store`, `no-cache`, `max-age=0`, past or invalid `Expires`, none); B if some, C if none is cacheable.
+  - **"Minifier les fichiers CSS, JavaScript, HTML et SVG"** (`MinifyTextFiles`, US-010): files whose comments and extra whitespace make 5 % or more of the content captured by DevTools. Contents are read in the background ("Analyse en cours… (n/N fichiers)"), never re-downloaded and never stored; files without captured content are "non évalués".
+  - **"Limiter le nombre de domaines servant les ressources"** (`LimitDomains`, US-011): A below 5 host names, B at 5, C above; one line per domain.
+  - **"Privilégier HTTP/2 à HTTP/1"** (`PreferHttp2`, US-012): share of network requests over HTTP/1.x; B below 10 %, C from 10 %; lines per domain.
+  - **"Limiter l'utilisation des GIFs animés"** (`LimitGifs`, US-013): every distinct GIF downloaded; one gives B, more give C.
+  - **"Éviter la lecture et le chargement automatique des vidéos et des sons"** (`AvoidMediaAutoplay`, US-014): `video` and `audio` with `autoplay` or `preload="auto"`; one gives B, more give C.
+- File names in the lines of these rules use the shortened display name of US-004 (full name on hover and for screen readers).
+- Recorded requests keep their HTTP version and start time (persisted; older analyses load unchanged).
+
+### Changed
+
+- Offender lists of the new rules are capped at 20 lines, then "… et N autres".
+- The image estimation queue is now built on a generic work queue, shared with the content analysis. Its behaviour is unchanged.
+
 ## [Unreleased]: US-004 and US-005, image comparison
 
 ### Added

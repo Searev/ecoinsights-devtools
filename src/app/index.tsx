@@ -3,11 +3,14 @@ import { render } from "solid-js/web";
 
 import "./index.css";
 import App from "./App";
-import { getBrowser, getImageEstimator } from "./infra/browser-factory";
+import { getBrowser, getContentAnalyser, getImageEstimator, getPreviewFileLoader } from "./infra/browser-factory";
 import { BrowserProvider } from "./infra/browser-context";
 import { ImageEstimatorProvider } from "./infra/estimator-context";
+import { ContentAnalyserProvider } from "./infra/content-analyser-context";
 import { createImageVariantStore } from "./domain/image-comparison/variant-store";
-import { ImageComparisonProvider } from "./ui/analysis/comparison/comparison-context";
+import { createSessionFileCache } from "./domain/image-comparison/session-file-cache";
+import { createPreviewFileStore } from "./domain/file-preview/preview-store";
+import { AppDialogProvider } from "./ui/analysis/dialog/DialogHost";
 
 const root = document.getElementById("root");
 
@@ -17,18 +20,24 @@ if (import.meta.env.DEV && !(root instanceof HTMLElement)) {
   );
 }
 
-Promise.all([getBrowser(), getImageEstimator()]).then(([browser, estimator]) => {
-  const store = createImageVariantStore(estimator);
-  render(
-    () => (
-      <BrowserProvider browser={browser}>
-        <ImageEstimatorProvider estimator={estimator}>
-          <ImageComparisonProvider store={store}>
-            <App />
-          </ImageComparisonProvider>
-        </ImageEstimatorProvider>
-      </BrowserProvider>
-    ),
-    root!
-  );
-});
+Promise.all([getBrowser(), getImageEstimator(), getContentAnalyser(), getPreviewFileLoader()]).then(
+  ([browser, estimator, contentAnalyser, previewLoader]) => {
+    const cache = createSessionFileCache();
+    const variantStore = createImageVariantStore(estimator, { cache });
+    const previewStore = createPreviewFileStore(previewLoader, { cache });
+    render(
+      () => (
+        <BrowserProvider browser={browser}>
+          <ImageEstimatorProvider estimator={estimator}>
+            <ContentAnalyserProvider analyser={contentAnalyser}>
+              <AppDialogProvider variantStore={variantStore} previewStore={previewStore}>
+                <App />
+              </AppDialogProvider>
+            </ContentAnalyserProvider>
+          </ImageEstimatorProvider>
+        </BrowserProvider>
+      ),
+      root!
+    );
+  }
+);

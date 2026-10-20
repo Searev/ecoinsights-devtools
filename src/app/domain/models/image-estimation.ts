@@ -160,6 +160,11 @@ export interface EstimationProgress {
   done: number;
   /** Images that need an estimation. */
   total: number;
+  /**
+   * What is counted: images (estimations, default) or text files (US-010 content analysis,
+   * "Analyse en cours… (n/N fichiers)").
+   */
+  unit?: "images" | "files";
 }
 
 /** US-003: combined image gain of one page, persisted in `PageAnalysis.imageGain`. */

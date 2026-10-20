@@ -35,6 +35,8 @@ Read `docs/architecture/ARCHITECTURE.md` and the `ARCH-DECISION-*.md` files befo
   - `evaluate(ctx)` reads them through `ctx.estimates` (`pending` / `estimated` / `skipped` / `failed`). While any is pending, return `progress` and no `compliance`; an undefined `compliance` without `progress` shows "Non évaluée".
   - Image policy (thresholds, encodings, formats) lives in `src/app/domain/image-estimation/policy.ts`. The image gain model is ARCH-DECISION-011.
   - `collect()` is serialised with `toString()` and run in the page: no imports, no module-level helpers, no closures, JSON-serialisable result. `rules-registry.test.ts` checks this automatically.
+  - `contentAnalyses(ctx)` (optional, pure) returns the `ContentJob`s whose DevTools-captured text content must be measured (US-010, ARCH-DECISION-018); `evaluate` reads them through `ctx.contents`. Contents are never re-downloaded or persisted.
+  - Lines naming a file are built with `fileLine` / `capLines` (`rules/rule-lines.ts`), which set `lineRefs` so the UI shows the shortened name (ARCH-DECISION-017). Shared request helpers are in `rules/request-helpers.ts`.
   - Rule files are also bundled into the background script.
 - **Image estimation (ARCH-DECISION-007 to 011).**
   - The `ImageEstimator` port (`domain/models/image-estimator.ts`) never rejects. `getImageEstimator()` (only called in `index.tsx`) gives a `WorkerImageEstimator` in the extension and a `FakeImageEstimator` in `npm run dev`. The UI reads it with `useImageEstimator()`.
@@ -43,10 +45,14 @@ Read `docs/architecture/ARCHITECTURE.md` and the `ARCH-DECISION-*.md` files befo
   - Codec tests run the real WASM under Node (`testing/node-wasm.ts`) on synthetic images, with no binary fixtures.
   - The manifest CSP needs `'wasm-unsafe-eval'`, hence `minimum_chrome_version` 103.
   - **Type-checking:** `tsconfig.json` lists `node_modules/@jsquash/jpeg/emscripten-types.d.ts` in `files`, because the glue `.d.ts` files need its global `EmscriptenWasm` namespace. Do not switch to `skipLibCheck` (ARCH-DECISION-008). New project source folders must be under `src/` or added to `include`.
-- **Image names and comparison (ARCH-DECISION-012 to 016).**
+- **Image names and comparison (ARCH-DECISION-012 to 015).**
   - Image rule lines must keep the `` `${fileLabel(url)} : ` `` prefix and the `lineFindings` order: the UI pairs each line with its finding to render the shortened name (`displayImageName`) and, for offenders, the comparison button. Unpaired lines fall back to plain text.
-  - The comparison dialog is mounted once (`ImageComparisonProvider` in `index.tsx`); its logic is the pure `comparison-controller.ts`. Variants come from the session `ImageVariantStore` (`domain/image-comparison/`), which uses the `ImageVariantGenerator` port implemented by `WorkerImageEstimator` (worker requests `inspect` and `generate`, sharing the estimation pipeline core).
-  - Keep the extension pages CSP without `img-src`/`default-src` (the dialog displays `blob:` images).
+  - Variants come from the session `ImageVariantStore` (`domain/image-comparison/`), which uses the `ImageVariantGenerator` port implemented by `WorkerImageEstimator` (worker requests `inspect` and `generate`, sharing the estimation pipeline core). The comparison logic is the pure `comparison-controller.ts`.
+- **Dialog host and previews (ARCH-DECISION-020 to 023).**
+  - One `<dialog>` for the app: `AppDialogProvider` (`ui/analysis/dialog/`, mounted once in `index.tsx`) owns the shell (header, "Fermer", Escape, backdrop, focus return by `data-dialog-key`). Lines open it with `useAppDialog().openComparison` / `openPreview`. Each content is a body in `ui/analysis/comparison/` or `ui/analysis/preview/`, mounted per opening after `showModal()`, with its own pure controller; a new kind of preview is one body plus one `<Match>`.
+  - A BP2 line is previewable when its `LineRef` has `preview` (set by the rule through `fileLine(url, rest, prefix, preview)`), or for legacy refs by `legacyLinePreview`. Only `http(s)` URLs are previewable. `createPreviewSubjectResolver(page.requests)` builds the subject: build one per page and rendering.
+  - Preview bytes come from `PreviewFileLoader` (`infra/file-preview/`, DevTools content else `fetch(force-cache)`, 25 MB cap, header parsing; the browser decodes). Media are streamed by the native player; fonts are `FontFace`s in the panel document only. `createSessionFileCache()` is the one 50 MB LRU shared by the variant and preview stores.
+  - Keep the extension pages CSP without `img-src`, `default-src`, `media-src`, `font-src` and `connect-src` (`scripts/manifest.test.mjs` asserts it).
 - **Build.** The manifest is generated from `src/manifest/base.json` + `chrome.json` / `firefox.json`; only `background`, Chrome's `minimum_chrome_version` and Firefox's `gecko` settings differ (the CSP is in `base.json`). The background and Probe are bundled with esbuild, and the panel with Vite.
 
 ## Tests
