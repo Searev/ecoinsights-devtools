@@ -63,7 +63,7 @@ export function createDevtoolsContentAnalyser(deps: DevtoolsContentAnalyserDeps)
       return notEvaluated("too-large");
     }
 
-    const scanner = createMinificationScanner(job.type);
+    const scanner = createMinificationScanner();
     const decoder = isBase64 ? makeDecoder(job.charset) : undefined;
     // A multiple of 4 so that each base64 slice decodes on its own.
     const step = isBase64 ? sliceCharacters - (sliceCharacters % 4) : sliceCharacters;

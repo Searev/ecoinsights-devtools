@@ -217,4 +217,127 @@ describe("createPreviewFileLoader", () => {
     expect(await throwing.loadImage(URL_, "")).toMatchObject({ status: "error", error: "unavailable" });
     expect(await throwing.loadFont(URL_, "")).toMatchObject({ status: "error", error: "unavailable" });
   });
+  describe("loadText (US-020)", () => {
+    const enc = (s: string) => new TextEncoder().encode(s);
+    const bytesOf = (r: Awaited<ReturnType<ReturnType<typeof setup>["loader"]["loadText"]>>) => {
+      if (r.status !== "loaded") throw new Error("expected loaded");
+      return Array.from(r.bytes);
+    };
+
+    it("decodes base64 DevTools content and keeps the subject charset", async () => {
+      const { loader, fetch } = setup({ devtools: { content: toBase64(Uint8Array.of(0xe9)), encoding: "base64" } });
+      const r = await loader.loadText(URL_, "text/css; charset=x", "iso-8859-1");
+      expect(fetch).not.toHaveBeenCalled();
+      expect(bytesOf(r)).toEqual([0xe9]);
+      expect(r).toMatchObject({ info: { byteLength: 1, mimeType: "text/css", charset: "iso-8859-1" } });
+    });
+
+    it("defaults the charset to utf-8 for base64 content", async () => {
+      const { loader } = setup({ devtools: { content: toBase64(enc("a")), encoding: "base64" } });
+      expect(await loader.loadText(URL_, "text/css")).toMatchObject({ info: { charset: "utf-8" } });
+    });
+
+    it("Firefox: content entirely base64 without encoding is decoded", async () => {
+      const { loader } = setup({ devtools: { content: toBase64(enc("body{}\n")) } });
+      const r = await loader.loadText(URL_, "text/css", "windows-1252");
+      expect(bytesOf(r)).toEqual(Array.from(enc("body{}\n")));
+      expect(r).toMatchObject({ info: { charset: "windows-1252" } });
+    });
+
+    it("Chrome text content is encoded as UTF-8 with charset utf-8", async () => {
+      const text = "a { content: 'é' }\n";
+      const { loader, fetch } = setup({ devtools: { content: text, encoding: "" } });
+      const r = await loader.loadText(URL_, "text/css", "iso-8859-1");
+      expect(fetch).not.toHaveBeenCalled();
+      expect(bytesOf(r)).toEqual(Array.from(enc(text)));
+      expect(r).toMatchObject({ info: { byteLength: enc(text).length, mimeType: "text/css", charset: "utf-8" } });
+      expect(enc("é").length).toBe(2);
+    });
+
+    it("text over the cap is too-large", async () => {
+      const { loader } = setup({ devtools: { content: "x".repeat(50) }, maxBytes: 10 });
+      expect(await loader.loadText(URL_, "text/css")).toEqual({ status: "error", error: "too-large" });
+    });
+
+    it("base64 over the cap is too-large without decoding or fetching", async () => {
+      const { loader, fetch } = setup({ devtools: { content: toBase64(new Uint8Array(100)), encoding: "base64" }, maxBytes: 10 });
+      expect(await loader.loadText(URL_, "text/css")).toEqual({ status: "error", error: "too-large" });
+      expect(fetch).not.toHaveBeenCalled();
+    });
+
+    it("falls back to fetch when there is no DevTools content", async () => {
+      const response = new Response(enc("a{}"), { status: 200, headers: { "content-type": "Text/CSS; charset=ISO-8859-1" } });
+      const { loader, fetch } = setup({ response });
+      const r = await loader.loadText(URL_, "text/plain", "utf-8");
+      expect(fetch).toHaveBeenCalledWith(URL_, { cache: "force-cache", credentials: "include" });
+      expect(r).toMatchObject({ status: "loaded", info: { byteLength: 3, mimeType: "text/css", charset: "iso-8859-1" } });
+    });
+
+    it("unquotes the response charset", async () => {
+      const response = new Response(enc("a"), { status: 200, headers: { "content-type": 'text/css; charset="UTF-16LE"' } });
+      expect(await setup({ response }).loader.loadText(URL_, "")).toMatchObject({ info: { charset: "utf-16le" } });
+    });
+
+    it("uses the subject charset, else utf-8, when the response has none", async () => {
+      const make = () => new Response(enc("a"), { status: 200 });
+      expect(await setup({ response: make() }).loader.loadText(URL_, "text/css; charset=utf-8", "iso-8859-1")).toMatchObject({
+        info: { charset: "iso-8859-1", mimeType: "text/css" },
+      });
+      expect(await setup({ response: make() }).loader.loadText(URL_, "text/css")).toMatchObject({ info: { charset: "utf-8" } });
+    });
+
+    it("reports 404 and network errors as unavailable", async () => {
+      expect(await setup({ response: new Response(null, { status: 404 }) }).loader.loadText(URL_, "")).toEqual({
+        status: "error",
+        error: "unavailable",
+        message: "HTTP 404",
+      });
+      expect(await setup({ response: new Error("offline") }).loader.loadText(URL_, "")).toEqual({
+        status: "error",
+        error: "unavailable",
+        message: "offline",
+      });
+    });
+
+    it("refuses a content-length over the cap without reading the body", async () => {
+      const cancel = vi.fn();
+      const response = new Response(streamOf([enc("abc")], cancel), { status: 200, headers: { "content-length": "5000" } });
+      expect(await setup({ response, maxBytes: 1000 }).loader.loadText(URL_, "")).toEqual({ status: "error", error: "too-large" });
+      await new Promise((r) => setTimeout(r, 0));
+      expect(cancel).toHaveBeenCalled();
+    });
+
+    it("cancels a streamed body over the cap", async () => {
+      const cancel = vi.fn();
+      const chunk = new Uint8Array(60);
+      const response = new Response(streamOf([chunk, chunk, chunk], cancel), { status: 200 });
+      expect(await setup({ response, maxBytes: 100 }).loader.loadText(URL_, "")).toEqual({ status: "error", error: "too-large" });
+      expect(cancel).toHaveBeenCalled();
+    });
+
+    it("loads an empty body as 0 bytes (S14)", async () => {
+      const r = await setup({ response: new Response(new Uint8Array(0), { status: 200 }) }).loader.loadText(URL_, "text/css");
+      expect(r).toMatchObject({ status: "loaded", info: { byteLength: 0, charset: "utf-8" } });
+    });
+
+    it("an empty DevTools content falls through to fetch", async () => {
+      const { loader, fetch } = setup({ devtools: { content: "" }, response: new Response(enc("z"), { status: 200 }) });
+      expect(bytesOf(await loader.loadText(URL_, "text/css"))).toEqual([0x7a]);
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("falls back to fetch when getDevtoolsContent throws, and never rejects", async () => {
+      const { loader, fetch } = setup({ devtools: new Error("boom"), response: new Response(enc("z"), { status: 200 }) });
+      expect((await loader.loadText(URL_, "text/css")).status).toBe("loaded");
+      expect(fetch).toHaveBeenCalledTimes(1);
+      const bad = setup({ devtools: new Error("boom"), response: new Error("offline") });
+      await expect(bad.loader.loadText(URL_, "")).resolves.toMatchObject({ status: "error", error: "unavailable" });
+    });
+
+    it("falls back to fetch when invalid base64 content is declared", async () => {
+      const { loader, fetch } = setup({ devtools: { content: "!!!", encoding: "base64" }, response: new Response(enc("z"), { status: 200 }) });
+      expect((await loader.loadText(URL_, "text/css")).status).toBe("loaded");
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
+  });
 });

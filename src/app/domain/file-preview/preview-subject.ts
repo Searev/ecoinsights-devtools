@@ -6,8 +6,9 @@
  * unambiguously (`legacyLinePreview`). Everything else the dialogs need comes from the page's
  * recorded requests, matched by URL without fragment.
  */
+import { contentTypeCharset } from "../best-practices/rules/request-helpers";
 import { normaliseImageUrl } from "../image-estimation/image-requests";
-import { LinePreview, LineRef } from "../models/best-practice";
+import { LinePreview, LineRef, TextPreviewType } from "../models/best-practice";
 import { PreviewSubject } from "../models/file-preview";
 import { NetworkRequest } from "../models/network-request";
 
@@ -25,10 +26,22 @@ export function isPreviewableUrl(url: string): boolean {
 }
 
 /**
- * Epic §6: the kind of a ref saved before EPIC-PV, from its rule and prefix. Unprefixed US-006
- * lines stay plain: an `<img>` line cannot be told from an `<area>` link line.
+ * US-020 S12: end of a US-010 offender line, "<name> (<type>, <weight>) : non minifié (~N % d'octets
+ * superflus)". Anchored at the end, so a file name that looks like a line cannot fool it.
  */
-export function legacyLinePreview(ruleId: string, prefix: string | undefined): LinePreview | undefined {
+const MINIFY_OFFENDER_END = / \((CSS|JS|HTML|SVG), [^()]*\) : non minifié \(~\d+ % d'octets superflus\)$/;
+
+/**
+ * Epic §6: the kind of a ref saved before EPIC-PV (or before US-020), from its rule, prefix and,
+ * when the prefix is not enough, the line text. Unprefixed US-006 lines stay plain: an `<img>`
+ * line cannot be told from an `<area>` link line. `MinifyTextFiles` offender lines are previewable,
+ * "non évalué" lines are not (ARCH-DECISION-024).
+ */
+export function legacyLinePreview(
+  ruleId: string,
+  prefix: string | undefined,
+  text?: string
+): LinePreview | undefined {
   const p = prefix ?? "";
   switch (ruleId) {
     case "LimitGifs":
@@ -41,6 +54,11 @@ export function legacyLinePreview(ruleId: string, prefix: string | undefined): L
       return p === "Vidéo " ? { kind: "video" } : p === "Son " ? { kind: "audio" } : undefined;
     case "UseStandardFonts":
       return p === "" ? { kind: "font" } : undefined;
+    case "MinifyTextFiles": {
+      if (p !== "" || text === undefined) return undefined;
+      const match = MINIFY_OFFENDER_END.exec(text);
+      return match ? { kind: "text", type: match[1] as TextPreviewType } : undefined;
+    }
     default:
       return undefined;
   }
@@ -67,13 +85,14 @@ function downloadedBytes(requests: readonly NetworkRequest[]): number | undefine
 }
 
 /**
- * Returns a resolver from a line's `LineRef` to its preview subject, or undefined when the line is
- * not previewable. The requests are indexed by URL once, on the first call: build one resolver per
- * page and per rendering, never keep it across updates of a recording.
+ * Returns a resolver from a line's `LineRef` (and, for legacy refs, its text) to its preview
+ * subject, or undefined when the line is not previewable. The requests are indexed by URL once, on
+ * the first call: build one resolver per page and per rendering, never keep it across updates of a
+ * recording.
  */
 export function createPreviewSubjectResolver(
   requests: readonly NetworkRequest[]
-): (ruleId: string, ref: LineRef) => PreviewSubject | undefined {
+): (ruleId: string, ref: LineRef, text?: string) => PreviewSubject | undefined {
   let index: Map<string, NetworkRequest[]> | undefined;
 
   function requestsOf(url: string): readonly NetworkRequest[] {
@@ -89,9 +108,9 @@ export function createPreviewSubjectResolver(
     return index.get(normaliseImageUrl(url)) ?? [];
   }
 
-  return (ruleId, ref) => {
+  return (ruleId, ref, text) => {
     if (!isPreviewableUrl(ref.url)) return undefined;
-    const preview = ref.preview ?? legacyLinePreview(ruleId, ref.prefix);
+    const preview = ref.preview ?? legacyLinePreview(ruleId, ref.prefix, text);
     if (preview === undefined) return undefined;
     const { url } = ref;
     const recorded = requestsOf(url);
@@ -135,6 +154,18 @@ export function createPreviewSubjectResolver(
       }
       case "font":
         return { kind: "font", url, ruleId, declaredType: type ?? "" };
+      case "text": {
+        const last = recorded[recorded.length - 1];
+        const charset = last === undefined ? undefined : contentTypeCharset(last);
+        return {
+          kind: "text",
+          url,
+          ruleId,
+          fileType: preview.type,
+          declaredType: type ?? "",
+          ...(charset !== undefined ? { charset } : {}),
+        };
+      }
     }
   };
 }

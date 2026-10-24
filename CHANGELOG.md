@@ -1,5 +1,28 @@
 # Changelog
 
+## [Unreleased]: US-019 to US-021
+
+### Fixed
+
+- **Fewer false positives in "Minifier les fichiers CSS, JavaScript, HTML et SVG" (US-021).**
+  - Files named `*.min.js`, `*.min.mjs` or `*.min.css` are minified by declaration: their content is not read, and they are never "non évalué".
+  - Only whitespace from the line structure counts (line breaks, indentation, trailing whitespace). Comments and whitespace inside a line no longer count, which removes the misreads of minified JavaScript.
+  - A file is flagged only with at least 5 % and 1 000 removable characters.
+  - Analyses saved earlier keep their grade.
+
+### Added
+
+- **Text file preview (US-020).** In "Minifier les fichiers CSS, JavaScript, HTML et SVG", the name of a "non minifié" file opens its content in the app dialog.
+  - It shows the type, the weight and the number of lines, then the raw content with line numbers (not copied with the text) and wrapped lines.
+  - Syntax colouring covers JavaScript, JSON, CSS, and HTML / SVG as markup, with comments in italics. It is done by an in-house tokenizer, loaded only when the first text preview opens, and falls back to plain text on any failure.
+  - Only the first 500 000 characters are displayed, with the notice "Affichage limité aux 500 premiers ko (fichier de … ko)."
+  - The content is read from DevTools, else re-downloaded from the HTTP cache, decoded with the response charset, and kept in the session cache. It is never interpreted as HTML, never stored, and never used for the grade.
+  - "Non évalué" lines stay plain text. Offender lines of analyses saved earlier are clickable too.
+
+### Changed
+
+- **"Limiter l'utilisation des GIFs animés" (US-019)** ignores GIFs under 5 ko (5 000 bytes), such as tracking pixels. The grade counts only GIFs of 5 ko or more, and the detail mentions the ignored ones ("(2 GIF de moins de 5 ko ignorés)"). Analyses saved earlier keep their grade.
+
 ## [Unreleased]: US-015 to US-018, epic PV (preview the flagged elements)
 
 ### Added

@@ -74,10 +74,10 @@ concerné est notée A.
 | Utiliser le chargement paresseux | images et iframes situées sous l'écran initial et chargées sans `loading="lazy"` (ni chargement différé par script) |
 | Compresser les fichiers textuels | fichiers HTML, CSS, JS et SVG de plus de 1 ko transférés sans compression, ou en `deflate` |
 | Ajouter des entêtes Expires ou Cache-Control | fichiers statiques (scripts, styles, images, polices, médias…) dont les entêtes n'autorisent pas la mise en cache |
-| Minifier les fichiers CSS, JavaScript, HTML et SVG | part de commentaires et d'espaces superflus (≥ 5 %) dans le contenu capturé par les outils de développement |
+| Minifier les fichiers CSS, JavaScript, HTML et SVG | part d'espaces superflus (indentation, fins de ligne, retours à la ligne ; ≥ 5 % et ≥ 1 ko) dans le contenu capturé par les outils de développement ; les fichiers `.min.js`, `.min.mjs` et `.min.css` sont considérés comme minifiés |
 | Limiter le nombre de domaines servant les ressources | nombre de noms d'hôtes distincts : A sous 5, B à 5, C au-delà |
 | Privilégier HTTP/2 à HTTP/1 | part des requêtes réseau en HTTP/1.x : B sous 10 %, C à partir de 10 % |
-| Limiter l'utilisation des GIFs animés | fichiers GIF téléchargés : B pour un, C au-delà |
+| Limiter l'utilisation des GIFs animés | fichiers GIF téléchargés de 5 ko ou plus : B pour un, C au-delà ; les GIF plus légers (pixels de suivi) sont ignorés et seulement mentionnés |
 | Éviter la lecture et le chargement automatique des vidéos et des sons | `video` et `audio` avec `autoplay` ou `preload="auto"` |
 
 La minification est analysée en arrière-plan (« Analyse en cours… (2/5 fichiers) »). Seul le contenu déjà capturé
@@ -94,15 +94,21 @@ Dans la liste des éléments concernés, le nom raccourci d'un fichier est un bo
 | Utiliser le chargement paresseux | l'image ; pour une iframe, ses données seulement : hôte, type, poids transféré et position |
 | Limiter l'utilisation des GIFs animés | le GIF, animé |
 | Éviter la lecture et le chargement automatique des vidéos et des sons | un lecteur vidéo ou audio, qui ne démarre jamais seul |
-| Utiliser des polices standards | la citation de Voltaire dans la police téléchargée, avec une bascule vers des polices système (« Sans-serif », « Serif », « Mono ») |
+| Utiliser des polices standards | une citation dans la police téléchargée, avec une bascule vers des polices système (« Sans-serif », « Serif », « Mono ») |
+| Minifier les fichiers CSS, JavaScript, HTML et SVG | pour un fichier « non minifié », son contenu brut, numéroté et coloré (JavaScript, CSS, HTML et SVG) |
 
 L'aperçu indique la résolution, le format et le poids (pour une vidéo ou un son, la durée et le poids téléchargé
 par la page). Une image ou une vidéo est dessinée à sa taille sur la page, ou en « Taille réelle ». Les iframes ne
 sont jamais chargées dans l'extension. Les lignes de « Utiliser des polices standards » prennent la forme
 « nom du fichier : poids », de la plus lourde à la plus légère.
 
+Le contenu d'un fichier texte est affiché tel quel, sans reformatage, avec ses numéros de ligne (exclus de la
+sélection), son type, son poids et son nombre de lignes. Il n'est jamais interprété : aucun script ne s'exécute et
+aucune image ni aucun style du fichier n'est chargé. Seuls les 500 000 premiers caractères sont affichés.
+
 Ne sont pas cliquables : les éléments sans fichier (« (sans source) », domaines), les zones `area`, les fichiers
-`blob:` et `data:`, et les polices des analyses enregistrées avant cette version. Un aperçu ouvert reste en mémoire
+`blob:` et `data:`, les fichiers « non évalués » de la minification, et les polices des analyses enregistrées avant
+cette version. Un aperçu ouvert reste en mémoire
 pendant la session du panneau (50 Mo au plus, partagés avec la comparaison des images) ; au-delà de 25 Mo, une image
 n'est pas affichée.
 
@@ -238,15 +244,15 @@ depuis le cache HTTP du navigateur lorsque c'est possible, si les outils de dév
 le contenu. Il en va de même pour la fenêtre de comparaison des images, y compris sur une analyse enregistrée.
 Ces images sont traitées localement, dans l'extension, et les versions optimisées ne sont jamais enregistrées.
 
-Les aperçus des éléments signalés suivent la même règle : une image ou une police est lue dans le contenu capturé
+Les aperçus des éléments signalés suivent la même règle : une image, une police ou un fichier texte est lu dans le contenu capturé
 par les outils de développement, sinon re-téléchargée par l'extension (depuis le cache HTTP lorsque c'est
 possible). Lire une vidéo ou un son dans l'aperçu le télécharge depuis l'extension, hors des requêtes mesurées de
 l'onglet inspecté ; à l'ouverture, seules ses métadonnées sont chargées. Une police n'est installée que dans le
 panneau de l'extension, jamais dans la page analysée, et elle est retirée à la fermeture de l'aperçu. Les iframes
 ne sont jamais chargées. Rien de tout cela n'est enregistré.
 
-Pour la minification, l'extension lit le contenu des fichiers texte capturé par les outils de développement, sans
-jamais le re-télécharger ni l'enregistrer. Aucune information n'est transmise à un quelconque service tiers.
+Pour noter la minification, l'extension lit le contenu des fichiers texte capturé par les outils de développement,
+sans jamais le re-télécharger ni l'enregistrer ; seul l'aperçu d'un fichier peut le re-télécharger, pour l'afficher. Aucune information n'est transmise à un quelconque service tiers.
 
 ## License
 

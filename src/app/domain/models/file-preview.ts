@@ -1,12 +1,12 @@
 /**
- * EPIC-PV (US-015 to US-018): preview of the files named by best-practice lines.
+ * EPIC-PV (US-015 to US-018, US-020): preview of the files named by best-practice lines.
  * Shared contract between the domain, the bytes adapter (`infra/file-preview/`) and the UI.
- * See docs/architecture/ARCH-DECISION-020 (subjects), 021 (dialog host), 022 (bytes) and 023
- * (media, fonts, CSP).
+ * See docs/architecture/ARCH-DECISION-020 (subjects), 021 (dialog host), 022 (bytes), 023
+ * (media, fonts, CSP), 024 (text subjects and bytes) and 025 (text viewer).
  *
  * Bytes are plain `Uint8Array`s: the domain never touches `Blob`, object URLs or `FontFace`.
  */
-import { PreviewBox } from "./best-practice";
+import { PreviewBox, TextPreviewType } from "./best-practice";
 
 interface PreviewSubjectBase {
   /** Absolute URL of the file, as referenced by the line (`LineRef.url`). Always `http(s)`. */
@@ -65,11 +65,26 @@ export interface FontPreviewSubject extends PreviewSubjectBase {
   declaredType: string;
 }
 
+/** US-020: a text file flagged "non minifié" by US-010 (ARCH-DECISION-024). */
+export interface TextPreviewSubject extends PreviewSubjectBase {
+  kind: "text";
+  /** Type of the line ("Type" row, colouring language). */
+  fileType: TextPreviewType;
+  /** Response MIME type of the last recorded request for the URL; "" when unknown. */
+  declaredType: string;
+  /**
+   * `charset` of the last recorded response `content-type`, lower case; undefined when absent.
+   * Used to decode DevTools base64 content, and a re-download whose response has no charset.
+   */
+  charset?: string;
+}
+
 export type PreviewSubject =
   | ImagePreviewSubject
   | MediaPreviewSubject
   | IframePreviewSubject
-  | FontPreviewSubject;
+  | FontPreviewSubject
+  | TextPreviewSubject;
 
 /** Image formats the preview recognises (US-015). */
 export type PreviewImageFormat =
@@ -116,6 +131,19 @@ export interface PreviewFontInfo {
   mimeType: string;
 }
 
+/** What the text preview needs to decode and describe the bytes obtained (US-020). */
+export interface PreviewTextInfo {
+  /** Byte length of the content obtained ("Poids"). UTF-8 length when DevTools gave decoded text. */
+  byteLength: number;
+  /** Response MIME type without parameters, else the declared type; "" when unknown. */
+  mimeType: string;
+  /**
+   * Encoding label to decode `bytes` with, lower case: "utf-8" when DevTools gave decoded text,
+   * else the response `charset`, else the subject's, else "utf-8".
+   */
+  charset: string;
+}
+
 /**
  * Why a preview file could not be obtained.
  * - `unavailable`: no DevTools content and the re-download failed (404, network), or the bytes are
@@ -136,6 +164,8 @@ export type PreviewFileResult<I> =
 export interface PreviewFileLoader {
   loadImage(url: string, declaredType: string): Promise<PreviewFileResult<PreviewImageInfo>>;
   loadFont(url: string, declaredType: string): Promise<PreviewFileResult<PreviewFontInfo>>;
+  /** US-020: any bytes are accepted; `charset` is the subject's (ARCH-DECISION-024). */
+  loadText(url: string, declaredType: string, charset?: string): Promise<PreviewFileResult<PreviewTextInfo>>;
 }
 
 /**
@@ -147,7 +177,10 @@ export interface PreviewFileLoader {
 export interface PreviewFileStore {
   image(url: string, declaredType: string): Promise<PreviewFileResult<PreviewImageInfo>>;
   font(url: string, declaredType: string): Promise<PreviewFileResult<PreviewFontInfo>>;
+  /** US-020: the raw bytes are cached (sized by the LRU); the UI decodes them. */
+  text(url: string, declaredType: string, charset?: string): Promise<PreviewFileResult<PreviewTextInfo>>;
   /** Synchronous cache reads (loaded files only; refreshes the LRU position). */
   peekImage(url: string): PreviewFileResult<PreviewImageInfo> | undefined;
   peekFont(url: string): PreviewFileResult<PreviewFontInfo> | undefined;
+  peekText(url: string): PreviewFileResult<PreviewTextInfo> | undefined;
 }

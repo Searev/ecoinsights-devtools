@@ -1,4 +1,11 @@
 import { EstimationProgress, ImageFinding } from "./image-estimation";
+import { TextFileType } from "./text-content";
+
+/**
+ * US-020: type of a previewed text file. `TextFileType` (the US-010 line types) plus `JSON`, which
+ * the viewer supports for later rules although US-010 never flags it.
+ */
+export type TextPreviewType = TextFileType | "JSON";
 
 export type BestPracticeId = string;
 
@@ -38,7 +45,9 @@ export type LinePreview =
   | { kind: "audio" }
   /** `top`: distance from the top of the page, in CSS pixels (US-007 data). */
   | { kind: "iframe"; top?: number }
-  | { kind: "font" };
+  | { kind: "font" }
+  /** US-020 (ARCH-DECISION-024): a text file whose content is shown, of the line's type. */
+  | { kind: "text"; type: TextPreviewType };
 
 export type BestPracticeCategory =
   | "content"

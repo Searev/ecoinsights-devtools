@@ -37,26 +37,27 @@ describe("createDevtoolsContentAnalyser", () => {
     const { analyser, getDevtoolsContent } = setup({ content: SOURCE });
     const outcome = await analyser.analyse(job());
     expect(getDevtoolsContent).toHaveBeenCalledWith("https://example.org/app.js");
-    expect(outcome).toEqual({ status: "analysed", ...measureMinification(SOURCE, "JS") });
+    expect(outcome).toEqual({ status: "analysed", ...measureMinification(SOURCE) });
   });
 
-  it("scans according to the job type", async () => {
-    const css = "a { color: red; }\n/* c */\n";
+  it("scans a CSS content with the same line-structure heuristic (US-021)", async () => {
+    const css = "a {\n    color: red;  \n}\n";
     const { analyser } = setup({ content: css });
     expect(await analyser.analyse(job({ url: "https://example.org/a.css", type: "CSS" }))).toEqual({
       status: "analysed",
-      ...measureMinification(css, "CSS"),
+      characters: 24,
+      removableCharacters: 9,
     });
   });
 
   it("decodes a base64 content reported by Chrome", async () => {
     const { analyser } = setup({ content: toBase64(Buffer.from(SOURCE)), encoding: "base64" });
-    expect(await analyser.analyse(job())).toEqual({ status: "analysed", ...measureMinification(SOURCE, "JS") });
+    expect(await analyser.analyse(job())).toEqual({ status: "analysed", ...measureMinification(SOURCE) });
   });
 
   it("decodes a base64 content without encoding (Firefox)", async () => {
     const { analyser } = setup({ content: toBase64(Buffer.from(SOURCE)) });
-    expect(await analyser.analyse(job())).toEqual({ status: "analysed", ...measureMinification(SOURCE, "JS") });
+    expect(await analyser.analyse(job())).toEqual({ status: "analysed", ...measureMinification(SOURCE) });
   });
 
   it("does not decode plain text that is not made only of base64 characters", async () => {

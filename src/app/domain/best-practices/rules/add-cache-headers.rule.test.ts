@@ -260,7 +260,7 @@ describe("addCacheHeadersRule.evaluate", () => {
     );
     ev(requests);
     let best = Infinity;
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 10; i++) {
       const start = performance.now();
       ev(requests);
       best = Math.min(best, performance.now() - start);

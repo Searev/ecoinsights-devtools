@@ -32,6 +32,7 @@ For running the heuristic, a Web Worker was considered. It was rejected: the con
   - `createContentQueue(analyser)` is the second instance.
   - `analyse-web-flow` creates both when best practices are checked. Both bump the same version counter, so closed pages are rebuilt on either change. `stopAnalysis()` stops both before building the final pages.
 - **Heuristic:** `domain/text-content/minification.ts` is pure and streaming. `createMinificationScanner(type)` exposes `feed(chunk)` and `result()`, and gives the same result for any chunking. `minified ⇔ removableShare < 5 %`; the rule applies that threshold, not the adapter.
+  - Amended by ARCH-DECISION-026 (US-021): the scanner is a line-structure whitespace counter without a `type` parameter, `*.min.js|mjs|css` files get no job, and the rule also requires `MIN_REMOVABLE_CHARACTERS` 1 000.
 - **Adapter** (`infra/content-analyser/devtools-content-analyser.ts`):
   - It takes the content from `ExtensionBrowser.getResourceContent(url)` only. **It has no `fetch` dependency at all.**
   - It decodes base64 (Chrome reports `encoding: "base64"`; Firefox reports no encoding, so a content made only of base64 characters is decoded) in slices, with `TextDecoder(charset ?? "utf-8", { fatal: false })` in streaming mode.

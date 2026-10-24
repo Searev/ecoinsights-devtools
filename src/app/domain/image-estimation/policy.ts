@@ -76,3 +76,9 @@ export const GENERIC_MIME_TYPES: readonly string[] = [
   "binary/octet-stream",
   "application/binary",
 ];
+
+/**
+ * US-019: a GIF under this size (bytes, 1 ko = 1 000 bytes) is ignored by "Limiter l'utilisation des GIFs
+ * animés", typically a tracking pixel. Exactly this size is counted; an unknown size (0) is ignored.
+ */
+export const MIN_COUNTED_GIF_BYTES = 5_000;

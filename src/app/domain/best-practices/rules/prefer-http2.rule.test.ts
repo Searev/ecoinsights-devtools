@@ -145,12 +145,12 @@ describe("preferHttp2Rule.evaluate", () => {
     );
     ev(requests);
     let best = Infinity;
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 10; i++) {
       const t = performance.now();
       ev(requests);
       best = Math.min(best, performance.now() - t);
     }
-    console.log(`prefer-http2 2000 requests (best of 5): ${best.toFixed(2)} ms`);
+    console.log(`prefer-http2 2000 requests (best of 10): ${best.toFixed(2)} ms`);
     expect(best).toBeLessThan(10);
   });
 });

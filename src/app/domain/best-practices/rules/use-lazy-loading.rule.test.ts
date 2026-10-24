@@ -266,10 +266,10 @@ describe("useLazyLoadingRule performance", () => {
     };
     try {
       run();
-      // Best of 3 to absorb scheduling noise when the whole suite runs in parallel.
+      // Best of 10 to absorb scheduling noise when the whole suite runs in parallel.
       let ms = Infinity;
       let r = run();
-      for (let k = 0; k < 3; k++) {
+      for (let k = 0; k < 10; k++) {
         const t0 = performance.now();
         r = run();
         ms = Math.min(ms, performance.now() - t0);

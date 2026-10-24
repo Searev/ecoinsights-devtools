@@ -378,10 +378,10 @@ describe("provideTextAlternativesRule performance", () => {
       (_, i) => `<img src="/i${i}.png" ${i % 2 ? 'alt="x"' : ""}>`
     ).join("");
     rule.evaluate({ url: "", requests: [], page: rule.collect!(), estimates: UNAVAILABLE_ESTIMATES });
-    // Best of 3 to absorb scheduling noise when the whole suite runs in parallel.
+    // Best of 10 to absorb scheduling noise when the whole suite runs in parallel.
     let ms = Infinity;
     let r = rule.evaluate({ url: "", requests: [], page: { elements: [] }, estimates: UNAVAILABLE_ESTIMATES });
-    for (let k = 0; k < 3; k++) {
+    for (let k = 0; k < 10; k++) {
       const t0 = performance.now();
       const page = rule.collect!();
       r = rule.evaluate({ url: "", requests: [], page, estimates: UNAVAILABLE_ESTIMATES });

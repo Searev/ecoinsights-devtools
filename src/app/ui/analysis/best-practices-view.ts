@@ -206,7 +206,7 @@ function fileOrTextLine(
     name: displayImageName(ref.url),
     rest: text.slice(start.length),
   };
-  const preview = resolve(bp.id, ref);
+  const preview = resolve(bp.id, ref, text);
   if (preview !== undefined) line.preview = preview;
   return line;
 }
@@ -216,9 +216,9 @@ type PreviewResolver = ReturnType<typeof createPreviewSubjectResolver>;
 /** One resolver per page, built on the first file line only (its request index is lazy too). */
 function lazyResolver(page: PageAnalysis): PreviewResolver {
   let resolver: PreviewResolver | undefined;
-  return (ruleId, ref) => {
+  return (ruleId, ref, text) => {
     resolver ??= createPreviewSubjectResolver(page.requests ?? []);
-    return resolver(ruleId, ref);
+    return resolver(ruleId, ref, text);
   };
 }
 

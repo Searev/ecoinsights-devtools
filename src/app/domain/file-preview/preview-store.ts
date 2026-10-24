@@ -1,5 +1,5 @@
 /**
- * Session cache of previewed files (EPIC-PV §5, ARCH-DECISION-022), on the session file cache
+ * Session cache of previewed files (EPIC-PV §5, ARCH-DECISION-022, 024), on the session file cache
  * shared with the comparison dialog. Pure: the bytes come from an injected `PreviewFileLoader`.
  * Same semantics as the variant store (ARCH-DECISION-014): one in-flight load per key, held by the
  * store so it completes after the dialog closed; loaded files cached; errors never cached.
@@ -11,10 +11,12 @@ import {
   PreviewFileStore,
   PreviewFontInfo,
   PreviewImageInfo,
+  PreviewTextInfo,
 } from "../models/file-preview";
 
 const imageKey = (url: string) => `preview-image:${url}`;
 const fontKey = (url: string) => `preview-font:${url}`;
+const textKey = (url: string) => `preview-text:${url}`;
 
 export function createPreviewFileStore(
   loader: PreviewFileLoader,
@@ -61,7 +63,10 @@ export function createPreviewFileStore(
       shared<PreviewImageInfo>(imageKey(url), () => loader.loadImage(url, declaredType)),
     font: (url, declaredType) =>
       shared<PreviewFontInfo>(fontKey(url), () => loader.loadFont(url, declaredType)),
+    text: (url, declaredType, charset) =>
+      shared<PreviewTextInfo>(textKey(url), () => loader.loadText(url, declaredType, charset)),
     peekImage: (url) => peek<PreviewImageInfo>(imageKey(url)),
     peekFont: (url) => peek<PreviewFontInfo>(fontKey(url)),
+    peekText: (url) => peek<PreviewTextInfo>(textKey(url)),
   };
 }

@@ -412,6 +412,58 @@ describe("preview subjects of file lines (ARCH-DECISION-020)", () => {
     expect(line).toMatchObject({ preview: { kind: "image", url } });
   });
 
+  describe("text previews (US-020)", () => {
+    const url = "https://cdn.test/app.css";
+    const offender = `${fileLabel(url)} (CSS, 15 ko) : non minifié (~22 % d'octets superflus)`;
+    const skipped = `${fileLabel(url)} (CSS, 15 ko) : non évalué (contenu non disponible)`;
+
+    it("gives a text subject with type, declared type and charset from the requests", () => {
+      const line = first("MinifyTextFiles", offender, { url, preview: { kind: "text", type: "CSS" } }, [
+        req(url, { type: "text/css", responseHeaders: { "content-type": "text/css; charset=ISO-8859-1" } }),
+      ]);
+      expect(line).toMatchObject({
+        kind: "file",
+        preview: { kind: "text", url, ruleId: "MinifyTextFiles", fileType: "CSS", declaredType: "text/css", charset: "iso-8859-1" },
+      });
+    });
+
+    it("S12: a legacy offender ref (without preview) is previewable", () => {
+      const line = first("MinifyTextFiles", offender, { url }, [req(url, { type: "text/css" })]);
+      expect(line).toMatchObject({ preview: { kind: "text", fileType: "CSS", url } });
+    });
+
+    it("S4: a legacy not-evaluated line is not previewable", () => {
+      const line = first("MinifyTextFiles", skipped, { url });
+      expect(line).toMatchObject({ kind: "file" });
+      expect(line).not.toHaveProperty("preview");
+    });
+
+    it("a data: URL is not previewable", () => {
+      const data = "data:text/css,a%7B%7D";
+      const text = `${fileLabel(data)} (CSS, 15 ko) : non minifié (~22 % d'octets superflus)`;
+      const line = first("MinifyTextFiles", text, { url: data, preview: { kind: "text", type: "CSS" } });
+      expect(line).not.toHaveProperty("preview");
+    });
+  });
+
+  it("US-019 S9: a saved LimitGifs practice is displayed as stored", () => {
+    const url = "https://x.org/pixel.gif";
+    const stored = {
+      id: "LimitGifs",
+      name: "Limiter l'utilisation des GIFs animés",
+      category: "images",
+      compliance: "C",
+      detail: "2 fichiers GIF : old detail",
+      offenders: ["anim.gif : 900 ko", `${fileLabel(url)} : 0 ko`],
+      lineRefs: [{ url: "https://x.org/anim.gif" }, { url }],
+    } as BestPractice;
+    const [entry] = aggregateBestPractices([pageWith([stored])]);
+    expect(entry.compliance).toBe("C");
+    expect(entry.detail).toBe("2 fichiers GIF : old detail");
+    expect(entry.offenders).toEqual(["anim.gif : 900 ko", `${fileLabel(url)} : 0 ko`]);
+    expect(entry.lines).toHaveLength(2);
+  });
+
   it("keeps legacy URL-only font lines as plain text (US-018 S8)", () => {
     const legacy = {
       id: "UseStandardFonts",

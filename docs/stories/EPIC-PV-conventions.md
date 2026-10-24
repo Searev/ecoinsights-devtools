@@ -1,6 +1,6 @@
 # Epic PV: preview the elements flagged by the best practices, shared conventions
 
-These rules apply to stories **US-015 to US-018**. Each story only states what differs.
+These rules apply to stories **US-015 to US-018** and **US-020**. Each story only states what differs.
 
 ## Why
 
@@ -14,6 +14,7 @@ The BP2 rules (US-006 to US-014) list file names, but an auditor cannot tell *wh
 | US-016 | Video lines of US-006 and US-014; sound lines of US-014 | a player (never autoplays), with resolution, duration, format, weight |
 | US-017 | Iframe lines of US-007 | data only: URL, type, weight, position |
 | US-018 | Font lines of "Utiliser des polices standards" | the Voltaire quote in the font, with a toggle to system fonts |
+| US-020 | "non minifié" lines of US-010 | the file content, syntax-coloured (JS, JSON, HTML/SVG, CSS), capped at 500 000 characters |
 
 The stories are independent and can be delivered in any order. All of them rely on the shared preview dialog of §2.
 

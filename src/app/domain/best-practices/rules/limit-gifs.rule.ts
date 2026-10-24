@@ -1,4 +1,5 @@
 import { BestPracticeRule } from "../rule";
+import { MIN_COUNTED_GIF_BYTES } from "../../image-estimation/policy";
 import { normaliseImageUrl } from "../../image-estimation/image-requests";
 import { PreviewBox } from "../../models/best-practice";
 import { NetworkRequest } from "../../models/network-request";
@@ -58,10 +59,20 @@ export const limitGifsRule: BestPracticeRule<LimitGifsPage> = {
         }
       }
     }
-    const gifs = [...lastRequestPerUrl(requests, (r) => isSuccess2xx(r) && isGif(r)).values()]
-      .map((r) => ({ url: r.url.href, size: gifSize(r) }))
+    const all = [...lastRequestPerUrl(requests, (r) => isSuccess2xx(r) && isGif(r)).values()].map((r) => ({
+      url: r.url.href,
+      size: gifSize(r),
+    }));
+    // US-019: GIFs under the threshold (tracking pixels) are ignored, and only mentioned in the detail.
+    const gifs = all
+      .filter((g) => g.size >= MIN_COUNTED_GIF_BYTES)
       .sort((a, b) => b.size - a.size || a.url.localeCompare(b.url));
-    if (gifs.length === 0) return { compliance: "A", detail: "Aucun fichier GIF" };
+    const ignored = all.length - gifs.length;
+    const mention =
+      ignored === 0 ? "" : ` (${ignored} GIF de moins de 5 ko ${plural(ignored, "ignoré", "ignorés")})`;
+    if (gifs.length === 0) {
+      return { compliance: "A", detail: ignored === 0 ? "Aucun fichier GIF" : `Aucun fichier GIF de 5 ko ou plus${mention}` };
+    }
     const lines: RuleLine[] = gifs.map((g) =>
       fileLine(
         g.url,
@@ -74,7 +85,7 @@ export const limitGifsRule: BestPracticeRule<LimitGifsPage> = {
     );
     return {
       compliance: gifs.length === 1 ? "B" : "C",
-      detail: `${gifs.length} ${plural(gifs.length, "fichier", "fichiers")} GIF : à remplacer par une vidéo WebM ou MP4 pour les animations, ou un format d'image moderne`,
+      detail: `${gifs.length} ${plural(gifs.length, "fichier", "fichiers")} GIF : à remplacer par une vidéo WebM ou MP4 pour les animations, ou un format d'image moderne${mention}`,
       ...capLines(lines),
     };
   },

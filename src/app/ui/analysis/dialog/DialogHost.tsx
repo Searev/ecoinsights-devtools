@@ -8,6 +8,7 @@ import { FontPreviewBody } from "../preview/FontPreviewBody";
 import { IframePreviewBody } from "../preview/IframePreviewBody";
 import { ImagePreviewBody } from "../preview/ImagePreviewBody";
 import { MediaPreviewBody } from "../preview/MediaPreviewBody";
+import { TextPreviewBody } from "../preview/TextPreviewBody";
 import { DialogHostState, DialogRequest, createDialogHost, dialogTitle } from "./dialog-host";
 
 interface AppDialog {
@@ -130,6 +131,9 @@ export function AppDialogProvider(props: {
                 </Match>
                 <Match when={request.kind === "preview" && request.subject.kind === "font" ? request.subject : undefined}>
                   {(font) => <FontPreviewBody subject={font()} store={props.previewStore} />}
+                </Match>
+                <Match when={request.kind === "preview" && request.subject.kind === "text" ? request.subject : undefined}>
+                  {(text) => <TextPreviewBody subject={text()} store={props.previewStore} />}
                 </Match>
               </Switch>
             )}

@@ -29,4 +29,33 @@ describe("FakePreviewFileLoader (dev)", () => {
       message: "aperçu des polices indisponible en mode démo",
     });
   });
+  describe("loadText samples", () => {
+    const cases: [string, string, RegExp][] = [
+      ["https://a.test/s/app.css", "text/css", /\/\*[\s\S]*\*\/[\s\S]*@media/],
+      ["https://a.test/s/app.js", "text/javascript", /\/\/|\/\*/],
+      ["https://a.test/s/app.mjs", "text/javascript", /`/],
+      ["https://a.test/s/index.html", "text/html", /<!doctype html>[\s\S]*<style>[\s\S]*<!--[\s\S]*<script>/i],
+      ["https://a.test/s/index.htm", "text/html", /<!--/],
+      ["https://a.test/s/logo.svg", "image/svg+xml", /<\?xml[\s\S]*<!--/],
+      ["https://a.test/s/data.json", "application/json", /"/],
+      ["https://a.test/s/unknown.txt", "text/css", /\/\*/],
+      ["https://a.test/s/noext?x=1.js#a", "text/css", /\/\*/],
+    ];
+    it.each(cases)("%s gives a %s sample", async (url, mime, pattern) => {
+      const result = await loader().loadText(url, "");
+      expect(result.status).toBe("loaded");
+      if (result.status !== "loaded") return;
+      const text = new TextDecoder("utf-8", { fatal: true }).decode(result.bytes);
+      expect(text).toMatch(pattern);
+      expect(text).toMatch(/\n {2}/);
+      expect(result.info).toEqual({ byteLength: result.bytes.length, mimeType: mime, charset: "utf-8" });
+    });
+
+    it("includes non-ASCII characters", async () => {
+      const result = await loader().loadText("https://a.test/a.css", "");
+      if (result.status !== "loaded") throw new Error("expected loaded");
+      expect(new TextDecoder().decode(result.bytes)).toMatch(/é/);
+      expect(result.info.byteLength).toBeGreaterThan(new TextDecoder().decode(result.bytes).length);
+    });
+  });
 });

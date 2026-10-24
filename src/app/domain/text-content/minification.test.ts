@@ -1,10 +1,10 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { removableShare, TextFileType } from "../models/text-content";
+import { removableShare } from "../models/text-content";
 import { MINIFIED_MAX_REMOVABLE_SHARE } from "./policy";
 import { createMinificationScanner, measureMinification } from "./minification";
 
-const removable = (text: string, type: TextFileType) => measureMinification(text, type).removableCharacters;
+const removable = (text: string) => measureMinification(text).removableCharacters;
 
 const fixture = (name: string) =>
   readFileSync(new URL(`./testing/fixtures/${name}`, import.meta.url), "utf-8");
@@ -20,8 +20,8 @@ function prng(seed: number) {
   };
 }
 
-function scanSplit(text: string, type: TextFileType, cuts: number[]) {
-  const scanner = createMinificationScanner(type);
+function scanSplit(text: string, cuts: number[]) {
+  const scanner = createMinificationScanner();
   let previous = 0;
   for (const cut of [...cuts].sort((a, b) => a - b)) {
     scanner.feed(text.slice(previous, cut));
@@ -31,216 +31,148 @@ function scanSplit(text: string, type: TextFileType, cuts: number[]) {
   return scanner.result();
 }
 
-describe("createMinificationScanner: counting", () => {
+describe("createMinificationScanner: line structure (US-021)", () => {
   it("counts the characters of the text", () => {
-    expect(measureMinification("a{b:c}", "CSS")).toEqual({ characters: 6, removableCharacters: 0 });
+    expect(measureMinification("a{b:c}")).toEqual({ characters: 6, removableCharacters: 0 });
   });
 
   it("returns zeros for an empty text", () => {
-    expect(measureMinification("", "JS")).toEqual({ characters: 0, removableCharacters: 0 });
+    expect(measureMinification("")).toEqual({ characters: 0, removableCharacters: 0 });
   });
 
-  it("does not count a single separating space", () => {
-    expect(removable("var a=1;", "JS")).toBe(0);
-    expect(removable("@media screen{a{b:c}}", "CSS")).toBe(0);
+  it("counts line breaks, indentation and trailing whitespace (scenario 8)", () => {
+    expect(measureMinification("a {\n    color: red;  \n}\n")).toEqual({ characters: 24, removableCharacters: 9 });
   });
 
-  it("counts a run of spaces as its length minus one", () => {
-    expect(removable("a    b", "JS")).toBe(3);
-    expect(removable("a\t\tb", "CSS")).toBe(1);
+  it("does not count whitespace between two other characters (scenario 7)", () => {
+    expect(removable("var a    =    1;")).toBe(0);
+    expect(removable("color: red")).toBe(0);
+    expect(removable("a\t\tb\f\fc")).toBe(0);
   });
 
-  it("counts a run containing a line break as its whole length", () => {
-    expect(removable("a \n  b", "JS")).toBe(4);
-    expect(removable("a\nb", "JS")).toBe(1);
-    expect(removable("a\r\nb", "CSS")).toBe(2);
+  it("counts blank lines and CRLF (scenario 9)", () => {
+    expect(removable("a\r\n\t\t\r\nb")).toBe(6);
+  });
+
+  it("counts every LF and CR as one", () => {
+    expect(removable("a\nb")).toBe(1);
+    expect(removable("a\rb")).toBe(1);
+    expect(removable("a\r\nb")).toBe(2);
+  });
+
+  it("counts a leading run on the first line", () => {
+    expect(removable("   a")).toBe(3);
+  });
+
+  it("counts a trailing run at the end of the text", () => {
+    expect(removable("a   ")).toBe(3);
+    expect(removable("a;\n\n")).toBe(2);
   });
 
   it("counts form feeds as whitespace", () => {
-    expect(removable("a\f\fb", "JS")).toBe(1);
+    expect(removable("\fa\f")).toBe(2);
   });
 
-  it("counts a trailing whitespace run at the end of the text", () => {
-    expect(removable("a;\n\n", "JS")).toBe(2);
-  });
-});
-
-describe("createMinificationScanner: comments", () => {
-  it("counts a CSS block comment entirely", () => {
-    expect(removable("a{b:c}/* hi */", "CSS")).toBe("/* hi */".length);
+  it("counts a whitespace-only text entirely", () => {
+    expect(removable("  \n ")).toBe(4);
   });
 
-  it("counts a JS block comment and a JS line comment", () => {
-    expect(removable("a=1;/* x */b=2;", "JS")).toBe("/* x */".length);
-    // "// x" (4) plus the line break (1)
-    expect(removable("a=1;// x\nb=2;", "JS")).toBe(5);
+  it("does not count non-breaking or other Unicode spaces", () => {
+    expect(removable("\u00a0a\u2003")).toBe(0);
   });
 
-  it("does not treat // as a comment in CSS", () => {
-    expect(removable("a{background:url(http://a.b/c.png)}", "CSS")).toBe(0);
-  });
-
-  it("counts an unterminated block comment up to the end", () => {
-    expect(removable("a;/* never closed", "JS")).toBe("/* never closed".length);
-  });
-
-  it("counts a line comment at the end of the text without a line break", () => {
-    expect(removable("a;//end", "JS")).toBe("//end".length);
-  });
-
-  it("counts HTML and SVG comments", () => {
-    expect(removable("<p>x</p><!-- c -->", "HTML")).toBe("<!-- c -->".length);
-    expect(removable("<g/><!-- c -->", "SVG")).toBe("<!-- c -->".length);
-  });
-
-  it("does not treat -- inside an HTML comment as its end", () => {
-    expect(removable("<!-- a -- b -->", "HTML")).toBe("<!-- a -- b -->".length);
-  });
-
-  it("does not treat /* as a comment in HTML", () => {
-    expect(removable("<p>/* x */</p>", "HTML")).toBe(0);
-  });
-
-  it("keeps licence comments starting with /*!", () => {
-    expect(removable("/*! lib v1.0 | MIT */a=1;", "JS")).toBe(0);
-    expect(removable("/*! lib */a{b:c}", "CSS")).toBe(0);
-  });
-
-  it("keeps comments containing @license or @preserve", () => {
-    expect(removable("/* @license MIT */a=1;", "JS")).toBe(0);
-    expect(removable("/**\n * foo\n * @preserve\n */a=1;", "JS")).toBe(0);
-    expect(removable("<!-- @license MIT -->", "HTML")).toBe(0);
-  });
-
-  it("keeps source map comments", () => {
-    expect(removable("a=1;\n//# sourceMappingURL=a.js.map", "JS")).toBe(1);
-    expect(removable("a=1;\n//@ sourceMappingURL=a.js.map", "JS")).toBe(1);
-    expect(removable("a{b:c}\n/*# sourceMappingURL=a.css.map */", "CSS")).toBe(1);
-  });
-
-  it("does not keep an ordinary comment that merely mentions sourceMappingURL later", () => {
-    expect(removable("// see sourceMappingURL=a", "JS")).toBe("// see sourceMappingURL=a".length);
+  it("does not count comments (scenario 6)", () => {
+    expect(removable("a=1;/* a long comment */b=2;/* another */")).toBe(0);
+    expect(removable("/* x */a=1;")).toBe(0);
+    expect(removable("<p>x</p><!-- c -->")).toBe(0);
   });
 });
 
-describe("createMinificationScanner: strings", () => {
-  it("does not read // inside a JS string as a comment", () => {
-    expect(removable('var u="http://a.b/c";var v=1;', "JS")).toBe(0);
-    expect(removable("var u='http://a.b/c';", "JS")).toBe(0);
-  });
+describe("createMinificationScanner: no parser drift (scenario 12)", () => {
+  const minified =
+    'var r=/["\']/;var a="*/*";var u="http://x";var c="/*";var d="//";f(a,u)'.repeat(800);
 
-  it("does not count whitespace inside strings", () => {
-    expect(removable('var s="a    b";', "JS")).toBe(0);
-    expect(removable("a{content:'x   y'}", "CSS")).toBe(0);
-  });
-
-  it("honours backslash escapes", () => {
-    expect(removable('var s="a\\"//b  c";', "JS")).toBe(0);
-  });
-
-  it("reads template literals across line breaks", () => {
-    expect(removable("var t=`a\n   // b\n  c`;", "JS")).toBe(0);
-  });
-
-  it("ends ' and \" strings at a line break", () => {
-    // "\n" (1) then "// c" (4)
-    expect(removable("'abc\n// c", "JS")).toBe(5);
-  });
-
-  it("allows an escaped line break inside a string", () => {
-    expect(removable('var s="a\\\n   b";', "JS")).toBe(0);
-  });
-
-  it("does not read /* inside a CSS string as a comment", () => {
-    expect(removable('a{content:"/*"}b{c:d}', "CSS")).toBe(0);
-  });
-
-  it("does not treat quotes as strings in HTML", () => {
-    expect(removable("<p>it's  <!-- c --></p>", "HTML")).toBe(1 + "<!-- c -->".length);
+  it("counts nothing in a single-line minified bundle", () => {
+    expect(minified.length).toBeGreaterThan(50_000);
+    expect(removable(minified)).toBe(0);
+    expect(removable(minified + "\n")).toBe(1);
   });
 });
 
 describe("createMinificationScanner: result()", () => {
   it("can be read at any time and does not alter the scan", () => {
-    const scanner = createMinificationScanner("JS");
+    const scanner = createMinificationScanner();
     scanner.feed("a;  ");
-    expect(scanner.result().removableCharacters).toBe(1);
+    expect(scanner.result().removableCharacters).toBe(2);
     scanner.feed("b");
-    expect(scanner.result()).toEqual({ characters: 5, removableCharacters: 1 });
+    expect(scanner.result()).toEqual({ characters: 5, removableCharacters: 0 });
   });
 });
 
-describe("createMinificationScanner: chunking invariance", () => {
-  const adversarial: Array<[string, TextFileType]> = [
-    ["a=1;/*! x */b=2;  /* @license y */ c=3;\n//# sourceMappingURL=a.map\n", "JS"],
-    ["x=1;// @preserve\ny=2; // z\n  \n z", "JS"],
-    ["a{b:c}  /*# sourceMappingURL=a.css.map */ /* c */\n\n", "CSS"],
-    ["<p>  a</p>\n<!-- c -->\n<!-- @license x -->  <!--! n --><!-->z", "HTML"],
-    ['var u="http://a//b\\"  c";\'q\n//e\n`t  \n//u`;/', "JS"],
-    ["<<!<!-<!--<!---->-->- -->x", "SVG"],
+describe("createMinificationScanner: chunking invariance (scenario 13)", () => {
+  const adversarial = [
+    "a {\n    color: red;  \n}\n",
+    "a\r\n\t\t\r\nb",
+    "  \n \f\n\r\r\n x  y  \n\n   ",
+    "var a    =    1;/* c */  \n",
   ];
 
   it("gives the same result when split at every single position", () => {
-    for (const [text, type] of adversarial) {
-      const whole = measureMinification(text, type);
+    for (const text of adversarial) {
+      const whole = measureMinification(text);
       for (let cut = 0; cut <= text.length; cut++) {
-        expect(scanSplit(text, type, [cut]), `${type} cut ${cut}`).toEqual(whole);
+        expect(scanSplit(text, [cut]), `cut ${cut}`).toEqual(whole);
       }
     }
   });
 
+  it("counts a CRLF split across two chunks as 2", () => {
+    expect(scanSplit("a\r\nb", [2]).removableCharacters).toBe(2);
+  });
+
   it("gives the same result when fed character by character", () => {
-    for (const [text, type] of adversarial) {
-      const scanner = createMinificationScanner(type);
+    for (const text of adversarial) {
+      const scanner = createMinificationScanner();
       for (const ch of text) scanner.feed(ch);
-      expect(scanner.result()).toEqual(measureMinification(text, type));
+      expect(scanner.result()).toEqual(measureMinification(text));
     }
   });
 
   it("gives the same result for random split points over every fixture", () => {
-    const fixtures: Array<[string, TextFileType]> = [
-      ["color.min.js", "JS"],
-      ["color.esm.js", "JS"],
-      ["app.min.js", "JS"],
-      ["preflight.css", "CSS"],
-      ["preflight.min.css", "CSS"],
-      ["page.html", "HTML"],
-      ["design-tool.svg", "SVG"],
+    const fixtures = [
+      "color.min.js",
+      "color.esm.js",
+      "app.min.js",
+      "preflight.css",
+      "preflight.min.css",
+      "page.html",
+      "design-tool.svg",
     ];
     const random = prng(42);
-    for (const [name, type] of fixtures) {
+    for (const name of fixtures) {
       const text = fixture(name);
-      const whole = measureMinification(text, type);
+      const whole = measureMinification(text);
       for (let round = 0; round < 40; round++) {
         const count = 1 + Math.floor(random() * 25);
         const cuts = Array.from({ length: count }, () => Math.floor(random() * (text.length + 1)));
-        expect(scanSplit(text, type, cuts), `${name} round ${round}`).toEqual(whole);
+        expect(scanSplit(text, cuts), `${name} round ${round}`).toEqual(whole);
       }
     }
   });
 });
 
 describe("reference fixtures (US-010 scenarios 4 and 5)", () => {
-  const share = (name: string, type: TextFileType) => removableShare(measureMinification(fixture(name), type));
+  const share = (name: string) => removableShare(measureMinification(fixture(name)));
 
-  const minified: Array<[string, TextFileType]> = [
-    ["color.min.js", "JS"],
-    ["preflight.min.css", "CSS"],
-    ["app.min.js", "JS"],
-  ];
-  const notMinified: Array<[string, TextFileType]> = [
-    ["color.esm.js", "JS"],
-    ["preflight.css", "CSS"],
-    ["page.html", "HTML"],
-    ["design-tool.svg", "SVG"],
-  ];
+  const minified = ["color.min.js", "preflight.min.css", "app.min.js"];
+  const notMinified = ["color.esm.js", "preflight.css", "page.html", "design-tool.svg"];
 
-  it.each(minified)("%s is minified", (name, type) => {
-    expect(share(name, type)).toBeLessThan(MINIFIED_MAX_REMOVABLE_SHARE);
+  it.each(minified)("%s is minified", (name) => {
+    expect(share(name)).toBeLessThan(MINIFIED_MAX_REMOVABLE_SHARE);
   });
 
-  it.each(notMinified)("%s is not minified", (name, type) => {
-    expect(share(name, type)).toBeGreaterThanOrEqual(MINIFIED_MAX_REMOVABLE_SHARE);
+  it.each(notMinified)("%s is not minified", (name) => {
+    expect(share(name)).toBeGreaterThanOrEqual(MINIFIED_MAX_REMOVABLE_SHARE);
   });
 
   it("is at least 3 kB for the HTML page and 2 kB for the SVG", () => {
@@ -248,12 +180,8 @@ describe("reference fixtures (US-010 scenarios 4 and 5)", () => {
     expect(fixture("design-tool.svg").length).toBeGreaterThanOrEqual(2000);
   });
 
-  it("classifies the licence header and source map footer of app.min.js as kept", () => {
-    const text = fixture("app.min.js");
-    expect(text.startsWith("/*! lib v1.0 | MIT */")).toBe(true);
-    expect(text.trimEnd().endsWith("//# sourceMappingURL=app.js.map")).toBe(true);
-    // only the trailing line breaks count
-    expect(removable(text, "JS")).toBeLessThanOrEqual(3);
+  it("counts almost nothing in app.min.js: only the trailing line breaks", () => {
+    expect(removable(fixture("app.min.js"))).toBeLessThanOrEqual(3);
   });
 });
 
@@ -263,9 +191,9 @@ describe("performance", () => {
       "/* comment */\nfunction f(a, b) {\n  // note\n  return a + b; /* x */\n}\nvar u = \"http://a.b/c\";\n";
     const text = unit.repeat(Math.ceil(5_000_000 / unit.length));
     expect(text.length).toBeGreaterThanOrEqual(5_000_000);
-    measureMinification(text.slice(0, 200_000), "JS"); // warm-up
+    measureMinification(text.slice(0, 200_000)); // warm-up
     const start = performance.now();
-    const scanner = createMinificationScanner("JS");
+    const scanner = createMinificationScanner();
     for (let i = 0; i < text.length; i += 262_144) scanner.feed(text.slice(i, i + 262_144));
     const result = scanner.result();
     const elapsed = performance.now() - start;

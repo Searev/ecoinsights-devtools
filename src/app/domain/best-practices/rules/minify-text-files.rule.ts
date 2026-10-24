@@ -9,6 +9,7 @@ import {
 import {
   MAX_CONTENT_BYTES,
   MINIFIED_MAX_REMOVABLE_SHARE,
+  MIN_REMOVABLE_CHARACTERS,
   MIN_TEXT_FILE_BYTES,
 } from "../../text-content/policy";
 import { BestPracticeRule } from "../rule";
@@ -16,6 +17,7 @@ import { formatKo } from "./image-rule-helpers";
 import { RuleLine, capLines, fileLine, plural } from "./rule-lines";
 import {
   contentTypeCharset,
+  isDeclaredMinified,
   isSuccess2xx,
   lastRequestPerUrl,
   textFileType,
@@ -24,6 +26,8 @@ import {
 interface ScopedFile {
   job: ContentJob;
   size: number;
+  /** US-021: `.min.js`, `.min.mjs` or `.min.css`; minified without reading its content. */
+  declared: boolean;
 }
 
 /** US-010 §2: successful text files of 1 000 bytes or more, one per URL. */
@@ -36,6 +40,7 @@ function filesInScope(requests: readonly NetworkRequest[]): ScopedFile[] {
     files.push({
       job: { url, type: textFileType(request)!, charset: contentTypeCharset(request) },
       size: request.responseSize,
+      declared: isDeclaredMinified(request.url),
     });
   }
   return files;
@@ -62,7 +67,7 @@ export const minifyTextFilesRule: BestPracticeRule = {
 
   contentAnalyses: ({ requests }) =>
     filesInScope(requests)
-      .filter((f) => f.size <= MAX_CONTENT_BYTES)
+      .filter((f) => !f.declared && f.size <= MAX_CONTENT_BYTES)
       .map((f) => f.job),
 
   evaluate: ({ requests, contents = UNAVAILABLE_CONTENTS }) => {
@@ -71,10 +76,14 @@ export const minifyTextFilesRule: BestPracticeRule = {
       return { compliance: "A", detail: "Aucun fichier CSS, JavaScript, HTML ou SVG à vérifier" };
     }
 
-    const states = files.map((file) => ({
-      ...file,
-      state: file.size > MAX_CONTENT_BYTES ? TOO_LARGE : (contents(file.job) ?? { status: "pending" as const }),
-    }));
+    // Declared builds are never read: they are minified and out of the progress.
+    const declaredCount = files.filter((f) => f.declared).length;
+    const states = files
+      .filter((f) => !f.declared)
+      .map((file) => ({
+        ...file,
+        state: file.size > MAX_CONTENT_BYTES ? TOO_LARGE : (contents(file.job) ?? { status: "pending" as const }),
+      }));
 
     const pending = states.filter((f) => f.state.status === "pending").length;
     if (pending > 0) {
@@ -87,13 +96,15 @@ export const minifyTextFilesRule: BestPracticeRule = {
 
     const offenders: { file: ScopedFile; share: number }[] = [];
     const skipped: (ScopedFile & { reason: ContentNotEvaluatedReason })[] = [];
-    let evaluated = 0;
+    let evaluated = declaredCount;
     for (const file of states) {
       const state = file.state;
       if (state.status === "analysed") {
         evaluated++;
         const share = removableShare(state);
-        if (share >= MINIFIED_MAX_REMOVABLE_SHARE) offenders.push({ file, share });
+        if (share >= MINIFIED_MAX_REMOVABLE_SHARE && state.removableCharacters >= MIN_REMOVABLE_CHARACTERS) {
+          offenders.push({ file, share });
+        }
       } else if (state.status === "not-evaluated") {
         skipped.push({ ...file, reason: state.reason });
       }
@@ -109,7 +120,9 @@ export const minifyTextFilesRule: BestPracticeRule = {
         .map(({ file, share }) =>
           fileLine(
             file.job.url,
-            ` (${file.job.type}, ${formatKo(file.size)}) : non minifié (~${Math.round(100 * share)} % d'octets superflus)`
+            ` (${file.job.type}, ${formatKo(file.size)}) : non minifié (~${Math.round(100 * share)} % d'octets superflus)`,
+            "",
+            { kind: "text", type: file.job.type }
           )
         ),
       ...skipped

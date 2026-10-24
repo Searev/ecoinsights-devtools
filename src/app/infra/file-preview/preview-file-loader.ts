@@ -5,6 +5,7 @@ import {
   PreviewFileResult,
   PreviewFontInfo,
   PreviewImageInfo,
+  PreviewTextInfo,
 } from "../../domain/models/file-preview";
 import { decodeBase64 } from "../image-codec/base64";
 import { detectFontFormat } from "./font-format";
@@ -19,7 +20,7 @@ export interface PreviewFileLoaderDeps {
 
 type FileKind = "image" | "font";
 type Obtained =
-  | { ok: true; bytes: Uint8Array; mimeType: string | undefined }
+  | { ok: true; bytes: Uint8Array; mimeType: string | undefined; contentType?: string }
   | { ok: false; error: "unavailable" | "too-large"; message?: string };
 
 const BASE64_SHAPE = /^[A-Za-z0-9+/]+={0,2}$/;
@@ -116,10 +117,61 @@ export function createPreviewFileLoader(deps: PreviewFileLoaderDeps): PreviewFil
       }
       const body = await readBody(response);
       if (!body.ok) return body;
-      const contentType = response.headers.get("content-type")?.split(";")[0].trim().toLowerCase();
-      return { ...body, mimeType: contentType || undefined };
+      const fullType = response.headers.get("content-type") ?? undefined;
+      const contentType = fullType?.split(";")[0].trim().toLowerCase();
+      return { ...body, mimeType: contentType || undefined, ...(fullType ? { contentType: fullType } : {}) };
     } catch (e) {
       return failure("unavailable", messageOf(e));
+    }
+  }
+
+  /** `charset` parameter of a content-type header, lower case and unquoted. */
+  function charsetOf(contentType: string | undefined): string | undefined {
+    const match = /;\s*charset\s*=\s*(?:"([^"]*)"|([^;\s]*))/i.exec(contentType ?? "");
+    return (match?.[1] ?? match?.[2])?.trim().toLowerCase() || undefined;
+  }
+
+  /** Text files (US-020): any bytes are accepted. Mirrors the Firefox all-base64 rule of the analyser. */
+  async function textFromDevtools(url: string, charset: string | undefined): Promise<Obtained & { charset?: string } | undefined> {
+    if (!deps.getDevtoolsContent) return undefined;
+    try {
+      const found = await deps.getDevtoolsContent(url);
+      if (!found || typeof found.content !== "string" || found.content === "") return undefined;
+      const { content, encoding } = found;
+      const isBase64 =
+        encoding != null && encoding !== ""
+          ? encoding === "base64"
+          : encoding == null && content.length % 4 === 0 && BASE64_SHAPE.test(content);
+      if (isBase64) {
+        if (decodedBase64Length(content) > maxBytes) return failure("too-large");
+        return { ok: true, bytes: decodeBase64(content), mimeType: undefined, charset: charset ?? "utf-8" };
+      }
+      // Decoded text: re-encoded as UTF-8, which is then the charset of the bytes.
+      const bytes = new TextEncoder().encode(content);
+      return bytes.length > maxBytes ? failure("too-large") : { ok: true, bytes, mimeType: undefined, charset: "utf-8" };
+    } catch {
+      return undefined; // fall through to fetch
+    }
+  }
+
+  async function loadTextFile(url: string, declaredType: string, subjectCharset: string | undefined): Promise<PreviewFileResult<PreviewTextInfo>> {
+    try {
+      const fromDevtoolsResult = await textFromDevtools(url, subjectCharset?.toLowerCase());
+      const obtained = fromDevtoolsResult ?? (await fromFetch(url));
+      if (!obtained.ok) {
+        return obtained.message === undefined
+          ? { status: "error", error: obtained.error }
+          : { status: "error", error: obtained.error, message: obtained.message };
+      }
+      const charset =
+        (fromDevtoolsResult && "charset" in fromDevtoolsResult ? fromDevtoolsResult.charset : undefined) ??
+        charsetOf(obtained.contentType) ??
+        subjectCharset?.toLowerCase() ??
+        "utf-8";
+      const mimeType = obtained.mimeType ?? declaredType.split(";")[0].trim().toLowerCase();
+      return { status: "loaded", bytes: obtained.bytes, info: { byteLength: obtained.bytes.length, mimeType, charset } };
+    } catch (e) {
+      return { status: "error", error: "unavailable", message: messageOf(e) };
     }
   }
 
@@ -158,5 +210,6 @@ export function createPreviewFileLoader(deps: PreviewFileLoaderDeps): PreviewFil
         byteLength: bytes.length,
         mimeType: mime,
       })),
+    loadText: loadTextFile,
   };
 }

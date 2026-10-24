@@ -175,15 +175,17 @@ Decisions: [ARCH-DECISION-017](ARCH-DECISION-017-line-refs-for-file-names.md) (l
    - The `ContentAnalyser` port (`infra/content-analyser/devtools-content-analyser.ts`) reads `ExtensionBrowser.getResourceContent` only, with no `fetch`. It decodes base64 or text with the response charset and feeds the pure streaming scanner (`domain/text-content/minification.ts`) in 256 Ki slices, yielding between slices.
    - `evaluate` reads `ctx.contents` and shows "Analyse en cours… (n/N fichiers)" (`progress.unit = "files"`) while files are pending.
    - Stop settles pending files as `analysis-stopped`.
+   - Heuristic (US-021, ARCH-DECISION-026): the scanner counts only line breaks, indentation and trailing whitespace, with no parsing. Files named `*.min.js`, `*.min.mjs` or `*.min.css` are declared minified by the rule (no job, never "non évalué"), and a file is flagged only at 5 % or more and 1 000 removable characters or more.
 
-### 3.7 Previews of the flagged elements (US-015 to US-018)
+### 3.7 Previews of the flagged elements (US-015 to US-018, US-020)
 
-Decisions: [ARCH-DECISION-020](ARCH-DECISION-020-preview-subjects-from-line-refs.md) (preview subjects from line references), [021](ARCH-DECISION-021-app-dialog-host.md) (app dialog host), [022](ARCH-DECISION-022-preview-file-bytes.md) (preview bytes, session cache), [023](ARCH-DECISION-023-media-and-font-previews-csp.md) (media, fonts, CSP).
+Decisions: [ARCH-DECISION-020](ARCH-DECISION-020-preview-subjects-from-line-refs.md) (preview subjects from line references), [021](ARCH-DECISION-021-app-dialog-host.md) (app dialog host), [022](ARCH-DECISION-022-preview-file-bytes.md) (preview bytes, session cache), [023](ARCH-DECISION-023-media-and-font-previews-csp.md) (media, fonts, CSP), [024](ARCH-DECISION-024-text-preview-subjects-and-bytes.md) (text subjects and bytes), [025](ARCH-DECISION-025-text-viewer-in-house-tokenizer.md) (text viewer, in-house tokenizer).
 
 1. **What a line previews.**
-   - Rules set `LineRef.preview` (`image` / `video` / `audio` / `iframe` / `font`) through `fileLine(url, rest, prefix, preview)`, with the element's CSS box (`display`) or the iframe position (`top`).
+   - Rules set `LineRef.preview` (`image` / `video` / `audio` / `iframe` / `font` / `text`) through `fileLine(url, rest, prefix, preview)`, with the element's CSS box (`display`) or the iframe position (`top`).
    - US-006, US-007 and US-014 read the box with their existing collectors (one `getBoundingClientRect` per element). US-013 has a collector for the largest `<img>` box per URL.
    - Refs saved before the epic fall back to the rule and prefix (`legacyLinePreview`). Unprefixed US-006 lines stay plain, because they are ambiguous with `<area>`.
+   - `MinifyTextFiles` (US-020) sets `{ kind: "text", type }` on "non minifié" lines only. Its legacy refs are recognised from the end of the line text, which the view passes to the resolver.
 2. **Subject.**
    - `best-practices-view.ts` builds one `createPreviewSubjectResolver(page.requests)` per page, lazily. It turns each file line's ref into a `PreviewSubject`, or undefined for non-`http(s)` URLs and unknown kinds.
    - The subject carries the recorded MIME type, the media bytes downloaded by the page (sum over its requests, `206` included), the last status, and the iframe document weight.
@@ -195,9 +197,10 @@ Decisions: [ARCH-DECISION-020](ARCH-DECISION-020-preview-subjects-from-line-refs
    - **image:** `PreviewFileStore`, then a `blob:` URL, then `<img>`; the browser decodes every format;
    - **media:** native `<video>` / `<audio>` with `preload="metadata"`, no autoplay, and `releaseMedia` on close;
    - **iframe:** data only, never an `<iframe>`;
-   - **font:** `FontFace` from the bytes, in the panel's `document.fonts` only, released on close.
+   - **font:** `FontFace` from the bytes, in the panel's `document.fonts` only, released on close;
+   - **text** (US-020): `PreviewFileStore.text`, decoded with the info's charset (`text-document.ts`), capped at 500 000 characters for display. `renderTextView` builds one row per line from text nodes only, in time slices, then colours it with the in-house line tokenizers of `preview/syntax/`, loaded by a dynamic `import()` (a separate chunk). A failure leaves plain text.
 5. **Bytes** (`infra/file-preview/preview-file-loader.ts`).
-   - DevTools content first (base64, Firefox base64 without encoding, SVG as text), else `fetch(url, { cache: "force-cache" })` from the panel.
+   - DevTools content first (base64, Firefox base64 without encoding, SVG as text, and any text for `loadText`), else `fetch(url, { cache: "force-cache" })` from the panel. Text keeps the charset to decode it with (the response's, else the recorded one, else UTF-8).
    - Capped at 25 MB with a streamed read; nothing is decoded over the cap.
    - Pure header parsers give the format, the size (GIF, BMP, ICO, SVG root, and `readDimensions`), the GIF animation flag and the font format.
    - `PreviewFileStore` caches files in the session LRU it shares with the comparison (`createSessionFileCache`, 50 MB).

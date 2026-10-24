@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { UNAVAILABLE_ESTIMATES } from "../../models/image-estimation";
 import { NetworkRequest } from "../../models/network-request";
+import { MIN_COUNTED_GIF_BYTES } from "../../image-estimation/policy";
 import { formatKo } from "./image-rule-helpers";
 import { LimitGifsPage, limitGifsRule } from "./limit-gifs.rule";
 
@@ -51,9 +52,9 @@ describe("limitGifsRule.evaluate", () => {
   });
 
   it("scenario 3: more than one GIF gives C, largest first", () => {
-    const r = ev([gif("/pixel.gif", 43), gif("/anim.gif", 900_000)]);
+    const r = ev([gif("/small.gif", 5_000), gif("/anim.gif", 900_000)]);
     expect(r.compliance).toBe("C");
-    expect(r.offenders).toEqual([`anim.gif : ${formatKo(900_000)}`, `pixel.gif : ${formatKo(43)}`]);
+    expect(r.offenders).toEqual([`anim.gif : ${formatKo(900_000)}`, `small.gif : ${formatKo(5_000)}`]);
     expect(r.detail).toBe(`2 fichiers GIF : ${SUFFIX}`);
   });
 
@@ -64,9 +65,9 @@ describe("limitGifsRule.evaluate", () => {
   });
 
   it("scenario 5: detected by extension when MIME is generic, case-insensitive", () => {
-    const r = ev([req("/media/banner.GIF", { type: "application/octet-stream", transferSize: 2_000 })]);
+    const r = ev([req("/media/banner.GIF", { type: "application/octet-stream", transferSize: 6_000 })]);
     expect(r.compliance).toBe("B");
-    expect(ev([req("/x.gif", { type: "" })]).compliance).toBe("B");
+    expect(ev([req("/x.gif", { type: "", transferSize: 6_000 })]).compliance).toBe("B");
   });
 
   it("does not use the extension when the MIME type is specific", () => {
@@ -90,7 +91,7 @@ describe("limitGifsRule.evaluate", () => {
   });
 
   it("caps at 20 lines with lineRefs aligned", () => {
-    const r = ev(Array.from({ length: 22 }, (_, i) => gif(`/g${String(i).padStart(2, "0")}.gif`, 1_000)));
+    const r = ev(Array.from({ length: 22 }, (_, i) => gif(`/g${String(i).padStart(2, "0")}.gif`, 5_000)));
     expect(r.offenders).toHaveLength(21);
     expect(r.offenders![20]).toBe("… et 2 autres");
     expect(r.lineRefs).toHaveLength(21);
@@ -104,12 +105,88 @@ describe("limitGifsRule.evaluate", () => {
     );
     ev(requests);
     let best = Infinity;
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 10; i++) {
       const start = performance.now();
       ev(requests);
       best = Math.min(best, performance.now() - start);
     }
     expect(best).toBeLessThan(10);
+  });
+});
+
+describe("limitGifsRule.evaluate small GIFs ignored (US-019)", () => {
+  const IGNORED = (text: string) => ` (${text})`;
+
+  it("exposes the 5 000 bytes policy", () => {
+    expect(MIN_COUNTED_GIF_BYTES).toBe(5_000);
+  });
+
+  it("scenario 1: the tracking pixel is ignored", () => {
+    const r = ev([gif("/anim.gif", 900_000), gif("/pixel.gif", 43)]);
+    expect(r.compliance).toBe("B");
+    expect(r.offenders).toEqual([`anim.gif : ${formatKo(900_000)}`]);
+    expect(r.lineRefs).toHaveLength(1);
+    expect(r.detail).toBe(`1 fichier GIF : ${SUFFIX}${IGNORED("1 GIF de moins de 5 ko ignoré")}`);
+  });
+
+  it("scenario 2: only tracking pixels gives A, with no line", () => {
+    const r = ev([gif("/p1.gif", 43), gif("/p2.gif", 35)]);
+    expect(r.compliance).toBe("A");
+    expect(r.detail).toBe("Aucun fichier GIF de 5 ko ou plus (2 GIF de moins de 5 ko ignorés)");
+    expect(r.offenders).toBeUndefined();
+    expect(r.lineRefs).toBeUndefined();
+  });
+
+  it("scenario 4: 5 000 bytes is counted, 4 999 is ignored", () => {
+    const r = ev([gif("/edge.gif", 5_000), gif("/below.gif", 4_999)]);
+    expect(r.compliance).toBe("B");
+    expect(r.offenders).toEqual([`edge.gif : ${formatKo(5_000)}`]);
+    expect(r.detail).toContain("(1 GIF de moins de 5 ko ignoré)");
+  });
+
+  it("scenario 5: several counted GIFs and no ignored GIF mention nothing", () => {
+    const r = ev([gif("/a.gif", 45_000), gif("/b.gif", 12_000)]);
+    expect(r.compliance).toBe("C");
+    expect(r.detail).toBe(`2 fichiers GIF : ${SUFFIX}`);
+  });
+
+  it("scenario 6: the decoded size is used when the transfer size is 0", () => {
+    const r = ev([
+      gif("/cached.gif", 0, { responseSize: 30_000 }),
+      gif("/tiny.gif", 0, { responseSize: 800 }),
+    ]);
+    expect(r.offenders).toEqual([`cached.gif : ${formatKo(30_000)}`]);
+    expect(r.detail).toContain("(1 GIF de moins de 5 ko ignoré)");
+  });
+
+  it("scenario 7: an unknown size is ignored", () => {
+    const r = ev([gif("/unknown.gif", 0, { responseSize: 0 })]);
+    expect(r.compliance).toBe("A");
+    expect(r.detail).toBe("Aucun fichier GIF de 5 ko ou plus (1 GIF de moins de 5 ko ignoré)");
+  });
+
+  it("scenario 8: duplicates count once and failures are not counted at all", () => {
+    const r = ev([
+      gif("/pixel.gif", 43),
+      gif("/pixel.gif", 43),
+      gif("/pixel.gif", 43),
+      gif("/missing.gif", 43, { code: 404 }),
+    ]);
+    expect(r.detail).toBe("Aucun fichier GIF de 5 ko ou plus (1 GIF de moins de 5 ko ignoré)");
+  });
+
+  it("uses the plural for three ignored GIFs", () => {
+    const r = ev([gif("/a.gif", 1), gif("/b.gif", 2), gif("/c.gif", 3), gif("/big.gif", 9_000)]);
+    expect(r.detail).toBe(`1 fichier GIF : ${SUFFIX} (3 GIF de moins de 5 ko ignorés)`);
+  });
+
+  it("keeps the display box of counted GIFs only", () => {
+    const r = ev([gif("/anim.gif", 9_000), gif("/pixel.gif", 43)], {
+      images: [img("https://x.test/anim.gif", 30, 20), img("https://x.test/pixel.gif", 1, 1)],
+    });
+    expect(r.lineRefs).toEqual([
+      { url: "https://x.test/anim.gif", preview: { kind: "image", display: { width: 30, height: 20 } } },
+    ]);
   });
 });
 
@@ -162,7 +239,7 @@ describe("limitGifsRule.evaluate display boxes (US-015)", () => {
     const images = Array.from({ length: 2_000 }, (_, i) => img(`https://x.test/g${i}.gif`, 10, 10));
     ev(requests, { images });
     let best = Infinity;
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 10; i++) {
       const start = performance.now();
       ev(requests, { images });
       best = Math.min(best, performance.now() - start);

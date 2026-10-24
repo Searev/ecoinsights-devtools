@@ -3,6 +3,7 @@ import { NetworkRequest } from "../../models/network-request";
 import {
   contentTypeCharset,
   hostOf,
+  isDeclaredMinified,
   isGenericMime,
   isSuccess2xx,
   lastRequestPerUrl,
@@ -55,6 +56,23 @@ describe("pathExtension", () => {
     ["https://x.test/dir.v2/file", undefined],
   ])("%s → %s", (url, expected) => {
     expect(pathExtension(new URL(url))).toBe(expected);
+  });
+});
+
+describe("isDeclaredMinified (US-021)", () => {
+  it.each([
+    ["https://x.test/js/jquery.min.js?ver=3.7.1", true],
+    ["https://x.test/Bootstrap.MIN.CSS", true],
+    ["https://x.test/app.min.mjs#x", true],
+    ["https://x.test/app-min.js", false],
+    ["https://x.test/app.minified.js", false],
+    ["https://x.test/min.js", false],
+    ["https://x.test/app.min.4f3a2c.js", false],
+    ["https://x.test/icon.min.svg", false],
+    ["https://x.test/dir.min.js/file.js", false],
+    ["https://x.test/", false],
+  ])("%s → %s", (url, expected) => {
+    expect(isDeclaredMinified(new URL(url))).toBe(expected);
   });
 });
 

@@ -3,6 +3,7 @@ import {
   PreviewFileResult,
   PreviewFontInfo,
   PreviewImageInfo,
+  PreviewTextInfo,
 } from "../../models/file-preview";
 import { Deferred, deferred } from "../../image-comparison/testing/fake-variant-generator";
 
@@ -41,13 +42,27 @@ export function loadedFont(
   };
 }
 
+/** A loaded text file: `text` encoded as UTF-8, decoded with "utf-8" by default (test helper). */
+export function loadedText(text: string, info: Partial<PreviewTextInfo> = {}): PreviewFileResult<PreviewTextInfo> {
+  const bytes = new TextEncoder().encode(text);
+  return {
+    status: "loaded",
+    bytes,
+    info: { byteLength: bytes.length, mimeType: "text/css", charset: "utf-8", ...info },
+  };
+}
+
 /**
  * Hand-written fake loader: every call records its arguments and waits for the test to settle its
- * deferred (`images[i].resolve(...)`, `fonts[i].resolve(...)`).
+ * deferred (`images[i].resolve(...)`, `fonts[i].resolve(...)`, `texts[i].resolve(...)`).
  */
 export class FakePreviewFileLoader implements PreviewFileLoader {
   readonly images: Array<{ url: string; declaredType: string } & Deferred<PreviewFileResult<PreviewImageInfo>>> = [];
   readonly fonts: Array<{ url: string; declaredType: string } & Deferred<PreviewFileResult<PreviewFontInfo>>> = [];
+
+  readonly texts: Array<
+    { url: string; declaredType: string; charset?: string } & Deferred<PreviewFileResult<PreviewTextInfo>>
+  > = [];
 
   loadImage(url: string, declaredType: string): Promise<PreviewFileResult<PreviewImageInfo>> {
     const d = deferred<PreviewFileResult<PreviewImageInfo>>();
@@ -58,6 +73,12 @@ export class FakePreviewFileLoader implements PreviewFileLoader {
   loadFont(url: string, declaredType: string): Promise<PreviewFileResult<PreviewFontInfo>> {
     const d = deferred<PreviewFileResult<PreviewFontInfo>>();
     this.fonts.push({ url, declaredType, ...d });
+    return d.promise;
+  }
+
+  loadText(url: string, declaredType: string, charset?: string): Promise<PreviewFileResult<PreviewTextInfo>> {
+    const d = deferred<PreviewFileResult<PreviewTextInfo>>();
+    this.texts.push({ url, declaredType, ...(charset !== undefined ? { charset } : {}), ...d });
     return d.promise;
   }
 }

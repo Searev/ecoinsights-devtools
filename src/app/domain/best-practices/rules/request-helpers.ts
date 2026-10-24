@@ -6,6 +6,7 @@ import { NetworkRequest } from "../../models/network-request";
 import { TextFileType } from "../../models/text-content";
 import { GENERIC_MIME_TYPES } from "../../image-estimation/policy";
 import { normaliseImageUrl } from "../../image-estimation/image-requests";
+import { DECLARED_MINIFIED_SUFFIXES } from "../../text-content/policy";
 
 export function isSuccess2xx(request: NetworkRequest): boolean {
   return request.code >= 200 && request.code < 300;
@@ -22,6 +23,12 @@ export function pathExtension(url: URL): string | undefined {
   const dot = segment.lastIndexOf(".");
   if (dot < 0 || dot === segment.length - 1) return undefined;
   return segment.slice(dot + 1).toLowerCase();
+}
+
+/** US-021: last path segment (query and fragment ignored) ends with a declared suffix, case-insensitive. */
+export function isDeclaredMinified(url: URL): boolean {
+  const segment = (url.pathname.split("/").pop() ?? "").toLowerCase();
+  return DECLARED_MINIFIED_SUFFIXES.some((suffix) => segment.endsWith(suffix));
 }
 
 export const JAVASCRIPT_MIME_TYPES: readonly string[] = [

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { LineRef } from "../models/best-practice";
 import { NetworkRequest } from "../models/network-request";
+import { formatKo } from "../best-practices/rules/image-rule-helpers";
 import { createPreviewSubjectResolver, isPreviewableUrl, legacyLinePreview } from "./preview-subject";
 
 function request(url: string, patch: Partial<NetworkRequest> = {}): NetworkRequest {
@@ -45,8 +46,37 @@ describe("legacyLinePreview (lines saved before EPIC-PV)", () => {
 
   it("returns undefined for the other rules", () => {
     expect(legacyLinePreview("CompressTextFiles", undefined)).toBeUndefined();
+    expect(legacyLinePreview("CompressTextFiles", undefined, "main.css (CSS, 48 ko) : non compressé")).toBeUndefined();
     expect(legacyLinePreview("MinifyTextFiles", undefined)).toBeUndefined();
     expect(legacyLinePreview("UseLazyLoading", "Vidéo ")).toBeUndefined();
+  });
+});
+
+describe("legacyLinePreview for MinifyTextFiles (US-020 S12: refs saved before US-020)", () => {
+  const ko = (bytes: number) => formatKo(bytes);
+
+  it.each([
+    ["CSS", `main.css (CSS, ${ko(48_000)}) : non minifié (~23 % d'octets superflus)`],
+    ["JS", `app.js (JS, ${ko(1_234_000)}) : non minifié (~5 % d'octets superflus)`],
+    ["HTML", `index.html (HTML, ${ko(12_000)}) : non minifié (~100 % d'octets superflus)`],
+    ["SVG", `logo.svg (SVG, ${ko(12_000)}) : non minifié (~7 % d'octets superflus)`],
+  ])("an offender line of type %s is a text preview of that type", (type, text) => {
+    expect(legacyLinePreview("MinifyTextFiles", undefined, text)).toEqual({ kind: "text", type });
+  });
+
+  it("keeps a file name that itself looks like a line (the end of the text decides)", () => {
+    const text = `a (CSS, 1 ko) : non minifié (~9 % d'octets superflus).js (JS, ${ko(2_000)}) : non minifié (~9 % d'octets superflus)`;
+    expect(legacyLinePreview("MinifyTextFiles", undefined, text)).toEqual({ kind: "text", type: "JS" });
+  });
+
+  it("leaves 'non évalué' lines, prefixed refs and a missing text plain (US-020 S4)", () => {
+    expect(
+      legacyLinePreview("MinifyTextFiles", undefined, `big.js (JS, ${ko(6_000_000)}) : non évalué (fichier trop volumineux)`)
+    ).toBeUndefined();
+    expect(
+      legacyLinePreview("MinifyTextFiles", "x ", `main.css (CSS, ${ko(48_000)}) : non minifié (~23 % d'octets superflus)`)
+    ).toBeUndefined();
+    expect(legacyLinePreview("MinifyTextFiles", undefined, undefined)).toBeUndefined();
   });
 });
 
@@ -155,6 +185,48 @@ describe("createPreviewSubjectResolver", () => {
       ruleId: "UseStandardFonts",
       declaredType: "font/woff2",
     });
+  });
+
+  it("builds a text subject with the recorded MIME type and charset (US-020 S1, S11)", () => {
+    const resolve = createPreviewSubjectResolver([
+      request("https://x.test/legacy.css", {
+        type: "text/css",
+        responseHeaders: { "content-type": "text/css; charset=ISO-8859-1" },
+      }),
+    ]);
+    expect(
+      resolve("MinifyTextFiles", { url: "https://x.test/legacy.css", preview: { kind: "text", type: "CSS" } })
+    ).toEqual({
+      kind: "text",
+      url: "https://x.test/legacy.css",
+      ruleId: "MinifyTextFiles",
+      fileType: "CSS",
+      declaredType: "text/css",
+      charset: "iso-8859-1",
+    });
+  });
+
+  it("omits the charset and declares '' when the file was not recorded", () => {
+    const resolve = createPreviewSubjectResolver([]);
+    expect(resolve("MinifyTextFiles", { url: "https://x.test/app.js", preview: { kind: "text", type: "JS" } })).toEqual({
+      kind: "text",
+      url: "https://x.test/app.js",
+      ruleId: "MinifyTextFiles",
+      fileType: "JS",
+      declaredType: "",
+    });
+  });
+
+  it("resolves a legacy MinifyTextFiles ref from the line text (US-020 S12)", () => {
+    const resolve = createPreviewSubjectResolver([]);
+    const offender = `main.css (CSS, ${formatKo(48_000)}) : non minifié (~23 % d'octets superflus)`;
+    const skipped = `big.js (JS, ${formatKo(6_000_000)}) : non évalué (fichier trop volumineux)`;
+    expect(resolve("MinifyTextFiles", { url: "https://x.test/main.css" }, offender)).toMatchObject({
+      kind: "text",
+      fileType: "CSS",
+    });
+    expect(resolve("MinifyTextFiles", { url: "https://x.test/big.js" }, skipped)).toBeUndefined();
+    expect(resolve("MinifyTextFiles", { url: "https://x.test/main.css" })).toBeUndefined();
   });
 
   it("falls back to the rule and prefix for refs saved before the epic (epic §6)", () => {

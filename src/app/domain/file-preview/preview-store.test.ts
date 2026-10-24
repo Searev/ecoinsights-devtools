@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createSessionFileCache } from "../image-comparison/session-file-cache";
 import { createImageVariantStore } from "../image-comparison/variant-store";
 import { FakeVariantGenerator, loadedFile } from "../image-comparison/testing/fake-variant-generator";
-import { FakePreviewFileLoader, loadedFont, loadedImage } from "./testing/fake-preview-file-loader";
+import { FakePreviewFileLoader, loadedFont, loadedImage, loadedText } from "./testing/fake-preview-file-loader";
 import { createPreviewFileStore } from "./preview-store";
 
 const GIF = "https://x.test/anim.gif";
@@ -72,6 +72,37 @@ describe("createPreviewFileStore: fonts", () => {
     expect((await font).status).toBe("loaded");
     expect(store.peekFont(FONT)).toMatchObject({ status: "loaded", info: { format: "woff2" } });
     expect(store.peekImage(FONT)).toBeUndefined();
+  });
+});
+
+describe("createPreviewFileStore: texts (US-020)", () => {
+  it("passes the charset, caches the bytes and serves peekText (S13)", async () => {
+    const loader = new FakePreviewFileLoader();
+    const store = createPreviewFileStore(loader);
+    expect(store.peekText("https://x.test/a.css")).toBeUndefined();
+    const first = store.text("https://x.test/a.css", "text/css", "iso-8859-1");
+    expect(loader.texts).toHaveLength(1);
+    expect(loader.texts[0]).toMatchObject({ url: "https://x.test/a.css", declaredType: "text/css", charset: "iso-8859-1" });
+    loader.texts[0].resolve(loadedText("a{}"));
+    expect(await first).toMatchObject({ status: "loaded", info: { byteLength: 3, charset: "utf-8" } });
+    expect(store.peekText("https://x.test/a.css")).toMatchObject({ status: "loaded" });
+    await store.text("https://x.test/a.css", "text/css");
+    expect(loader.texts).toHaveLength(1);
+  });
+
+  it("caches texts separately from images and fonts with the same URL, and never caches an error", async () => {
+    const loader = new FakePreviewFileLoader();
+    const store = createPreviewFileStore(loader);
+    const failed = store.text("https://x.test/a", "");
+    loader.texts[0].resolve({ status: "error", error: "unavailable" });
+    expect(await failed).toEqual({ status: "error", error: "unavailable" });
+    expect(store.peekText("https://x.test/a")).toBeUndefined();
+    const image = store.image("https://x.test/a", "");
+    loader.images[0].resolve(loadedImage(10));
+    await image;
+    expect(store.peekText("https://x.test/a")).toBeUndefined();
+    void store.text("https://x.test/a", "");
+    expect(loader.texts).toHaveLength(2);
   });
 });
 

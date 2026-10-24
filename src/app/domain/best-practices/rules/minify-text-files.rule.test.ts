@@ -13,13 +13,14 @@ import { minifyTextFilesRule } from "./minify-text-files.rule";
 
 const MIME: Record<string, string> = {
   js: "text/javascript",
+  mjs: "text/javascript",
   css: "text/css",
   html: "text/html",
   svg: "image/svg+xml",
 };
 
 function file(name: string, size: number, overrides: Partial<NetworkRequest> = {}): NetworkRequest {
-  const ext = name.split(".").pop()!;
+  const ext = name.split(".").pop()!.toLowerCase();
   return baseRequest(`https://cdn.test/${name}`, { type: MIME[ext], responseSize: size, ...overrides });
 }
 
@@ -35,6 +36,12 @@ function lookupOf(states: Record<string, ContentState>): ContentLookup {
   const map = new Map(Object.entries(states).map(([name, s]) => [contentKey({ url: `https://cdn.test/${name}`, type: "JS" }), s]));
   return (job) => map.get(contentKey(job));
 }
+
+const withChars = (characters: number, removableCharacters: number): ContentState => ({
+  status: "analysed",
+  characters,
+  removableCharacters,
+});
 
 function run(requests: NetworkRequest[], states: Record<string, ContentState>) {
   return minifyTextFilesRule.evaluate({
@@ -55,8 +62,8 @@ describe("MinifyTextFiles rule", () => {
 
   it("scenario 1: all minified gives A", () => {
     const res = run(
-      [file("app.min.js", 120_000), file("style.min.css", 30_000)],
-      { "app.min.js": analysed(0.01), "style.min.css": analysed(0.02) }
+      [file("app.js", 120_000), file("style.css", 30_000)],
+      { "app.js": analysed(0.01), "style.css": analysed(0.02) }
     );
     expect(res.compliance).toBe("A");
     expect(res.detail).toBe("Tous les fichiers CSS, JavaScript, HTML et SVG sont minifiés");
@@ -65,13 +72,28 @@ describe("MinifyTextFiles rule", () => {
 
   it("scenario 2: one unminified file gives B with its line", () => {
     const res = run(
-      [file("app.min.js", 120_000), file("custom.css", 15_000)],
-      { "app.min.js": analysed(0.01), "custom.css": analysed(0.22) }
+      [file("app.js", 120_000), file("custom.css", 15_000)],
+      { "app.js": analysed(0.01), "custom.css": analysed(0.22) }
     );
     expect(res.compliance).toBe("B");
     expect(res.detail).toBe("1 fichier sur 2 non minifié");
     expect(res.offenders).toEqual(["custom.css (CSS, 15 ko) : non minifié (~22 % d'octets superflus)"]);
-    expect(res.lineRefs).toEqual([{ url: "https://cdn.test/custom.css" }]);
+    expect(res.lineRefs).toEqual([{ url: "https://cdn.test/custom.css", preview: { kind: "text", type: "CSS" } }]);
+  });
+
+  it("US-020: offender lines carry a text preview of their type, not-evaluated lines none", () => {
+    const res = run(
+      [file("a.js", 5_000), file("b.css", 5_000), file("c.html", 5_000), file("d.svg", 5_000), file("e.js", 5_000)],
+      { "a.js": analysed(0.3), "b.css": analysed(0.3), "c.html": analysed(0.3), "d.svg": analysed(0.3), "e.js": unavailable }
+    );
+    const byUrl = new Map(res.lineRefs!.map((ref) => [ref!.url, ref!]));
+    expect(byUrl.get("https://cdn.test/a.js")!.preview).toEqual({ kind: "text", type: "JS" });
+    expect(byUrl.get("https://cdn.test/b.css")!.preview).toEqual({ kind: "text", type: "CSS" });
+    expect(byUrl.get("https://cdn.test/c.html")!.preview).toEqual({ kind: "text", type: "HTML" });
+    expect(byUrl.get("https://cdn.test/d.svg")!.preview).toEqual({ kind: "text", type: "SVG" });
+    const skipped = byUrl.get("https://cdn.test/e.js")!;
+    expect(skipped).toEqual({ url: "https://cdn.test/e.js" });
+    expect("preview" in skipped).toBe(false);
   });
 
   it("scenario 3: nothing minified gives C", () => {
@@ -260,5 +282,89 @@ describe("MinifyTextFiles rule", () => {
     expect(res.offenders).toHaveLength(21);
     expect(res.offenders![20]).toBe("… et 2 autres");
     expect(res.lineRefs![20]).toBeNull();
+  });
+
+  describe("declared minified builds (US-021)", () => {
+    const declared = [file("jquery.min.js", 90_000), file("Bootstrap.MIN.CSS", 40_000), file("app.min.mjs", 20_000)];
+
+    it("scenarios 1, 2: declared files produce no content job", () => {
+      const jobs = minifyTextFilesRule.contentAnalyses!({ url: "u", requests: declared, page: undefined });
+      expect(jobs).toEqual([]);
+    });
+
+    it("scenario 1: a declared file counts as evaluated and minified whatever its content", () => {
+      const res = run([file("jquery.min.js", 90_000)], {
+        "jquery.min.js": analysed(0.6),
+      });
+      expect(res.compliance).toBe("A");
+      expect(res.offenders).toBeUndefined();
+    });
+
+    it("keeps the query out of the declaration", () => {
+      const req = baseRequest("https://cdn.test/jquery.min.js?ver=3.7.1", { type: "text/javascript", responseSize: 90_000 });
+      expect(minifyTextFilesRule.contentAnalyses!({ url: "u", requests: [req], page: undefined })).toEqual([]);
+      expect(run([req], {}).compliance).toBe("A");
+    });
+
+    it("scenario 3: names that are not declarations are analysed", () => {
+      const requests = [
+        file("app-min.js", 5_000),
+        file("app.minified.js", 5_000),
+        file("app.min.4f3a2c.js", 5_000),
+        file("icon.min.svg", 5_000),
+      ];
+      const jobs = minifyTextFilesRule.contentAnalyses!({ url: "u", requests, page: undefined });
+      expect(jobs.map((j) => j.url)).toEqual(requests.map((r) => r.url.href));
+    });
+
+    it("scenario 4: declared files over 5 MB or without content give A and are never not-evaluated", () => {
+      const res = run([file("vendor.min.js", 6_000_000), file("lib.min.js", 50_000)], {
+        "lib.min.js": unavailable,
+      });
+      expect(res.compliance).toBe("A");
+      expect(res.detail).toBe("Tous les fichiers CSS, JavaScript, HTML et SVG sont minifiés");
+      expect(res.offenders).toBeUndefined();
+    });
+
+    it("grades a declared file as one evaluated file next to an offender", () => {
+      const res = run([file("lib.min.js", 50_000), file("custom.css", 15_000)], { "custom.css": analysed(0.22) });
+      expect(res.compliance).toBe("B");
+      expect(res.detail).toBe("1 fichier sur 2 non minifié");
+    });
+
+    it("gives A without progress when pending files are all declared", () => {
+      const res = run(declared, { "jquery.min.js": pending });
+      expect(res.compliance).toBe("A");
+      expect(res.progress).toBeUndefined();
+    });
+
+    it("computes progress over the non-declared files only", () => {
+      const res = run([file("lib.min.js", 50_000), file("a.js", 5_000), file("b.js", 5_000), file("c.js", 5_000)], {
+        "a.js": analysed(0.01),
+        "b.js": pending,
+        "c.js": pending,
+      });
+      expect(res.compliance).toBeUndefined();
+      expect(res.progress).toEqual({ done: 1, total: 3, unit: "files" });
+      expect(res.detail).toBe("Analyse en cours… (1/3 fichiers)");
+    });
+  });
+
+  describe("floor of 1 000 removable characters (US-021 scenario 10)", () => {
+    it("flags 1 000 removable characters at 5 % and spares 999 and 600 at 20 %", () => {
+      const res = run([file("icon.svg", 3_000), file("theme.css", 20_000), file("small.css", 19_980)], {
+        "icon.svg": withChars(3_000, 600),
+        "theme.css": withChars(20_000, 1_000),
+        "small.css": withChars(19_980, 999),
+      });
+      expect(res.compliance).toBe("B");
+      expect(res.detail).toBe("1 fichier sur 3 non minifié");
+      expect(res.offenders).toEqual(["theme.css (CSS, 20 ko) : non minifié (~5 % d'octets superflus)"]);
+    });
+
+    it("keeps the 5 % rule above the floor", () => {
+      const res = run([file("big.js", 100_000)], { "big.js": withChars(100_000, 4_999) });
+      expect(res.compliance).toBe("A");
+    });
   });
 });

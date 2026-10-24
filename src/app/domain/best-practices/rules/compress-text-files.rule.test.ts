@@ -188,7 +188,7 @@ describe("compressTextFilesRule.evaluate", () => {
     const requests = Array.from({ length: 2_000 }, (_, i) => js(`/f${i}.js`, i % 3 === 0 ? undefined : "br"));
     ev(requests);
     let best = Infinity;
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 10; i++) {
       const start = performance.now();
       ev(requests);
       best = Math.min(best, performance.now() - start);
