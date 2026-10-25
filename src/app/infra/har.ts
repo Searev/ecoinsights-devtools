@@ -41,6 +41,8 @@ export function toNetworkRequest(entry: HARFormatEntry): NetworkRequest | null {
     value: string;
   }>) {
     const name = header.name.toLowerCase();
+    // Cookies may carry session tokens and no rule reads them: never persist them.
+    if (name === "set-cookie" || name === "set-cookie2") continue;
     responseHeaders[name] =
       name in responseHeaders
         ? `${responseHeaders[name]}, ${header.value}`

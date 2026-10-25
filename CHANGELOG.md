@@ -1,8 +1,43 @@
 # Changelog
 
-## [Unreleased]: US-030, light mode
+## [1.0.0] - 2026-10-25
 
-### Added
+First public release.
+
+### Release preparation
+
+#### Added
+
+- **Privacy policy** ([PRIVACY.md](PRIVACY.md), in French and English) and the Chrome Web Store submission sheet ([docs/store/CHROME-WEB-STORE.md](docs/store/CHROME-WEB-STORE.md)).
+- **Firefox data-collection declaration:** `data_collection_permissions: { required: ["none"] }`, which addons.mozilla.org requires for new add-ons.
+
+#### Changed
+
+- **One name everywhere: "EcoInsights Devtools"**, in the manifest, the DevTools panel, the toolbar, the page headers, the "À propos" page, the package (`ecoinsights-devtools`) and the docs. The storage key of saved analyses is unchanged, so existing analyses are kept.
+- **Version 1.0.0** in the manifest and `package.json`, kept equal by a manifest test.
+- **Licence:** `package.json` now declares `AGPL-3.0-or-later`, matching `LICENSE`. Third-party content (EcoIndex formula, RWEB descriptions) stays under CC BY-NC-ND 4.0.
+- **Dependencies:** each one is pinned to its latest patch release, for example vite 4.5.14, chart.js 4.4.9, tailwindcss 3.3.7 and postcss 8.4.49.
+  - eslint-plugin-solid stays at 0.13.0, because 0.13.2 crashes on TypeScript `as` expressions with typescript-eslint 6.8.
+  - **solid-js 1.9.6** clears the critical `seroval` advisory, since `seroval` now resolves to 1.6.12. The JSX compiler `babel-preset-solid` is pinned to the same 1.9.6 through `overrides`. Versions 1.9.7 and later either keep a vulnerable `seroval` or need TypeScript 5.4 for their DOM types.
+
+#### Fixed
+
+- **French UI text:**
+  - "Rafraîchir", "Déclencher", "Réessayer", "Êtes-vous sûr(e)", "À propos", "Évolution", "Émissions", "Mise en perspective", "Taille max. du DOM", "Chargement en cours…";
+  - French quotation marks in the permission help;
+  - non-breaking spaces before units ("12 g CO2e", "1 000 visiteurs");
+  - spelling on the "À propos" page.
+- **"Fournir une CSS print"** replaces "Fournir une print css", with the details "La page dispose d'une CSS print" and "Aucune CSS print trouvée".
+- **Canvas wording:** a single canvas reads "1 élément canvas : vérifier s'il peut être remplacé par un élément HTML".
+- **Privacy:** `Set-Cookie` response headers are no longer stored with the analyses.
+
+#### Removed
+
+- The "EcoInsights panel created" console log.
+
+### US-030, light mode
+
+#### Added
 
 - **Light theme and a "Thème" selector (US-030).** A native select labelled "Thème", in the toolbar immediately left of "A propos", offers "Système" (default), "Clair" and "Sombre".
   - "Système" follows `prefers-color-scheme` and updates live when the OS or browser appearance changes.
@@ -13,7 +48,7 @@
 - A light syntax palette for the text preview, tested at 4.5:1 or more on the light background, like the dark one.
 - Contrast tests on the colour tokens of both themes (WCAG 2.1 AA: 4.5:1 for text, 3:1 for fields, focus and status graphics), and a source guard test that rejects Tailwind palette classes and colour literals in the UI.
 
-### Changed
+#### Changed
 
 - Every UI colour is a theme token backed by a CSS custom property (`src/app/ui/theme/theme-tokens.ts`). `tailwind.config.js` became `tailwind.config.ts`. Icons use `currentColor`. The native controls and scrollbars follow the theme through `color-scheme`.
 - The dark theme is unchanged, except where it failed WCAG AA text contrast:
@@ -23,9 +58,9 @@
   - field placeholders are `#a1a8b2` instead of `#9ca3af`;
   - EcoIndex badges are filled with the grade colour, with a black or white letter (4.5:1 or more for every grade), in both themes.
 
-## [Unreleased]: US-028 and US-029, epic BP-UX (clearer best-practice panels)
+### US-028 and US-029, epic BP-UX (clearer best-practice panels)
 
-### Added
+#### Added
 
 - **Reference, description and link for each best practice (US-028).**
   - The panel header shows the referential reference before the rule name, for example "RWEB 0075" or "RGAA 1.1".
@@ -52,9 +87,9 @@
   - Stored indicators are validated when loading, and a malformed one is dropped.
   - Grades, details, thresholds and lines are unchanged. The CSV export is unchanged.
 
-## [Unreleased]: US-024 to US-027, epic BP3 (four new best practices)
+### US-024 to US-027, epic BP3 (four new best practices)
 
-### Added
+#### Added
 
 - Four best practices, graded per page:
   - **"Externaliser les CSS et JavaScript"** (`ExternalizeCssJs`, US-024): non-empty `<style>` and inline JavaScript `<script>` (no `src`; no type, `module` or a JavaScript MIME type) in the DOM at collection time, styles injected by scripts included. A for 0 to 2, B for 3 to 5, C for 6 or more. B and C list each block as "<script id=\"gtm\"> en ligne : 0,3 ko", largest first. Data scripts (`application/ld+json`, `importmap`, `speculationrules`, templates) are ignored.
@@ -64,9 +99,9 @@
 - The two DOM rules are "Non évaluée" ("La page n'a pas pu être inspectée") when the page could not be inspected. They add two page scripts per collection.
 - Analyses saved earlier don't list the new rules.
 
-## [Unreleased]: US-019 to US-021
+### US-019 to US-021
 
-### Fixed
+#### Fixed
 
 - **Fewer false positives in "Minifier les fichiers CSS, JavaScript, HTML et SVG" (US-021).**
   - Files named `*.min.js`, `*.min.mjs` or `*.min.css` are minified by declaration: their content is not read, and they are never "non évalué".
@@ -74,7 +109,7 @@
   - A file is flagged only with at least 5 % and 1 000 removable characters.
   - Analyses saved earlier keep their grade.
 
-### Added
+#### Added
 
 - **Text file preview (US-020).** In "Minifier les fichiers CSS, JavaScript, HTML et SVG", the name of a "non minifié" file opens its content in the app dialog.
   - It shows the type, the weight and the number of lines, then the raw content with line numbers (not copied with the text) and wrapped lines.
@@ -83,13 +118,13 @@
   - The content is read from DevTools, else re-downloaded from the HTTP cache, decoded with the response charset, and kept in the session cache. It is never interpreted as HTML, never stored, and never used for the grade.
   - "Non évalué" lines stay plain text. Offender lines of analyses saved earlier are clickable too.
 
-### Changed
+#### Changed
 
 - **"Limiter l'utilisation des GIFs animés" (US-019)** ignores GIFs under 5 ko (5 000 bytes), such as tracking pixels. The grade counts only GIFs of 5 ko or more, and the detail mentions the ignored ones ("(2 GIF de moins de 5 ko ignorés)"). Analyses saved earlier keep their grade.
 
-## [Unreleased]: US-015 to US-018, epic PV (preview the flagged elements)
+### US-015 to US-018, epic PV (preview the flagged elements)
 
-### Added
+#### Added
 
 - **Clickable file names.** The shortened name of a line is a button opening a preview, in "Fournir une alternative textuelle aux contenus multimédias", "Utiliser le chargement paresseux", "Limiter l'utilisation des GIFs animés", "Éviter la lecture et le chargement automatique des vidéos et des sons" and "Utiliser des polices standards".
   - Lines without a file, `<area>` lines, and `blob:` and `data:` URLs stay plain text.
@@ -108,15 +143,15 @@
 - One dialog for the whole app hosts the comparison and every preview: Escape, a backdrop click and "Fermer" close it, and focus returns to the clicked name.
 - Previewed files share the comparison's session cache (50 MB, least recently used first), so reopening is instant.
 
-### Changed
+#### Changed
 
 - "Utiliser des polices standards" lists "file name : weight", one line per file, heaviest first, at most 20 lines. Its grade and detail are unchanged. Analyses saved earlier keep their URL lines.
 - "Limiter l'utilisation des GIFs animés" now reads the display size of the page's images (one more page script per collection). The other three rules also record the CSS box of their elements. Grades and line texts are unchanged.
 - The README privacy section covers the previews: images and fonts may be re-downloaded from the HTTP cache, playing a medium downloads it from the panel, and nothing is stored or sent to a third party.
 
-## [Unreleased]: US-006 to US-014, epic BP2 (nine new best practices)
+### US-006 to US-014, epic BP2 (nine new best practices)
 
-### Added
+#### Added
 
 - Nine best practices, graded per page (a page with nothing in scope is A):
   - **"Fournir une alternative textuelle aux contenus multimédias"** (`ProvideTextAlternatives`, US-006): images, image inputs, `area` and videos without a text alternative are C; an empty `alt` is B ("à vérifier"); decorative ARIA and tracking pixels are ignored.
@@ -131,14 +166,14 @@
 - File names in the lines of these rules use the shortened display name of US-004 (full name on hover and for screen readers).
 - Recorded requests keep their HTTP version and start time (persisted; older analyses load unchanged).
 
-### Changed
+#### Changed
 
 - Offender lists of the new rules are capped at 20 lines, then "… et N autres".
 - The image estimation queue is now built on a generic work queue, shared with the content analysis. Its behaviour is unchanged.
 
-## [Unreleased]: US-004 and US-005, image comparison
+### US-004 and US-005, image comparison
 
-### Added
+#### Added
 
 - **Image comparison dialog (US-005).** In both image rules, the name of each offending image is a button that opens a modal dialog.
   - The toggle switches between "Originale" and the rule's optimised version: "Redimensionnée", "AVIF" or "WebP sans perte". An image flagged by both rules also offers "Les deux".
@@ -149,14 +184,14 @@
   - A notice tells when the image changed since the analysis.
 - **Shortened image names (US-004).** Long file names show as the first 12 characters, "...", the last 12 and the extension. The full name is in the tooltip and in the accessible name.
 
-### Changed
+#### Changed
 
 - "Utiliser des formats d'image optimisés" now also reads the display size of the page's images (one more page script per collection). Its grade and lines are unchanged.
 - Image findings record the natural size, the display size and the byte length the estimator saw. Older analyses open the comparison in "Taille réelle".
 
-## [Unreleased]: US-001 to US-003, image optimisation
+### US-001 to US-003, image optimisation
 
-### Added
+#### Added
 
 - **"Ne pas redimensionner les images dans le navigateur" measures a real gain.**
   - Oversized images are compared with their display size multiplied by the screen density, which the detail shows ("Densité d'écran : 2x").
@@ -172,15 +207,15 @@
   - They run in a dedicated Web Worker and are loaded only when needed, adding about 5.9 MB per browser package.
   - The extension may re-download images of the analysed site, from the HTTP cache when possible, when DevTools did not keep their content. Nothing is sent to any third party.
 
-### Changed
+#### Changed
 
 - **Chrome 103 or later is required**, because the manifest CSP now allows `'wasm-unsafe-eval'` to compile the codecs. Firefox stays at 109 or later.
 - Stopping an analysis while estimations are running saves it at once. The pending images are shown as "non évaluée (analyse arrêtée)".
 - GIF, BMP, ICO, TIFF, SVG and animated images are not evaluated by the image rules.
 
-## [Unreleased]: REFACTOR-001
+### REFACTOR-001
 
-### Changed
+#### Changed
 
 - **Single code path for Chrome and Firefox.**
   - The DevTools panel now talks to one background **Page agent** through a typed protocol (`src/shared/protocol.ts`), with request ids, timeouts and explicit errors.
@@ -194,7 +229,7 @@
   - Firefox gets a `gecko.id`.
 - **Best-practice results** are grouped by category, list the offending resources, and show "Non évaluée" when a rule could not run.
 
-### Added
+#### Added
 
 - New best practice: **"Utiliser des polices standards"** (`UseStandardFonts`), which counts the downloaded font files and their weight.
 - An error screen with "Réessayer" when an analysis cannot start: missing permission, or the background script not responding.
@@ -202,7 +237,7 @@
 - A test suite (Vitest + jsdom), plus `npm test`, `npm run typecheck` and `npm run lint`.
 - Architecture documentation and decision records in `docs/architecture/`.
 
-### Fixed
+#### Fixed
 
 - Best practices were never evaluated on Firefox.
 - "Refresh on start" measured the previous page on Firefox (the reload resolved too early).

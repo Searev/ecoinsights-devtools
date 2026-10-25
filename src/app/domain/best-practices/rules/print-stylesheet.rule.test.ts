@@ -23,8 +23,8 @@ describe("printStylesheetRule.evaluate", () => {
   });
 
   it("explains the result", () => {
-    expect(ev(1).detail).toBe("La page dispose d'une print css");
-    expect(ev(0).detail).toBe("Pas de Print CSS trouvée");
+    expect(ev(1).detail).toBe("La page dispose d'une CSS print");
+    expect(ev(0).detail).toBe("Aucune CSS print trouvée");
   });
 
   it("does not penalise when the page could not be inspected", () => {

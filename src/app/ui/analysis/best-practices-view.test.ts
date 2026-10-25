@@ -529,7 +529,7 @@ describe("US-029 indicators", () => {
 
   const cache = { id: "AddCacheHeaders", name: "Ajouter des entêtes Expires ou Cache-Control", category: "network" as const };
   const requests = { id: "LimitRequests", name: "Limiter le nombre de requêtes HTTP", category: "network" as const };
-  const printCss = { id: "PrintStyleSheet", name: "Fournir une print css", category: "css" as const };
+  const printCss = { id: "PrintStyleSheet", name: "Fournir une CSS print", category: "css" as const };
   const compress = { id: "CompressTextFiles", name: "Compresser les fichiers textuels", category: "network" as const };
   const minify = { id: "MinifyTextFiles", name: "Minifier les fichiers CSS, JavaScript, HTML et SVG", category: "js" as const };
 

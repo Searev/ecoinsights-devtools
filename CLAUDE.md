@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-EcoInsights Profiler is a Manifest V3 DevTools extension for Chrome (≥ 103) and Firefox (≥ 109). It measures the environmental impact (EcoIndex) of a full user journey, including SPAs, and checks sustainable-design best practices, including image gains estimated by real WASM re-encoding. README and UI strings are in French; code, comments and tests are in English.
+EcoInsights Devtools is a Manifest V3 DevTools extension for Chrome (≥ 103) and Firefox (≥ 109). It measures the environmental impact (EcoIndex) of a full user journey, including SPAs, and checks sustainable-design best practices, including image gains estimated by real WASM re-encoding. README and UI strings are in French; code, comments and tests are in English.
 
 ## Commands
 

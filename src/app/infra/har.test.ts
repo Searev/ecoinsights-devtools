@@ -69,13 +69,28 @@ describe("toNetworkRequest", () => {
         response: {
           headers: [
             { name: "Cache-Control", value: "max-age=1" },
-            { name: "Set-Cookie", value: "a=1" },
-            { name: "set-cookie", value: "b=2" },
+            { name: "Vary", value: "Accept" },
+            { name: "vary", value: "Origin" },
           ],
         },
       })
     );
-    expect(r?.responseHeaders).toEqual({ "cache-control": "max-age=1", "set-cookie": "a=1, b=2" });
+    expect(r?.responseHeaders).toEqual({ "cache-control": "max-age=1", vary: "Accept, Origin" });
+  });
+
+  it("never keeps cookies set by the response, since analyses are persisted", () => {
+    const r = toNetworkRequest(
+      entry({
+        response: {
+          headers: [
+            { name: "Set-Cookie", value: "session=secret" },
+            { name: "set-cookie2", value: "a=1" },
+            { name: "Content-Type", value: "text/html" },
+          ],
+        },
+      })
+    );
+    expect(r?.responseHeaders).toEqual({ "content-type": "text/html" });
   });
 });
 

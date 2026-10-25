@@ -1,6 +1,6 @@
-# EcoInsights Profiler (V 0.1.0)
+# EcoInsights Devtools (v1.0.0)
 
-EcoInsights Profiler est une extension pour navigateurs (Chrome >= 103, Firefox >= 109) permettant de mesurer l'impact environnemental
+EcoInsights Devtools est une extension pour navigateurs (Chrome >= 103, Firefox >= 109) permettant de mesurer l'impact environnemental
 d'un parcours utilisateur complet sur un service numérique.
 
 Il se fonde sur 3 projets pré-existant.
@@ -28,7 +28,7 @@ Pour mesurer l'impact environnemental d'un service, vous pouvez procéder de la 
 
 ### Thème clair ou sombre
 
-Le sélecteur « Thème », dans la barre d'outils, à gauche de « A propos », propose trois modes :
+Le sélecteur « Thème », dans la barre d'outils, à gauche de « À propos », propose trois modes :
 
 - **Système** (par défaut) : suit l'apparence claire ou sombre du système ou du navigateur (`prefers-color-scheme`),
   et change en direct quand elle change, sans recharger l'onglet ;
@@ -300,8 +300,12 @@ plutôt que simulées avec `vi.mock`.
 
 ## Vie privée
 
-EcoInsights Profiler s'exécute purement dans le navigateur, en y stockant toutes les
-données nécessaires à son fonctionnement, y compris les analyses passées.
+La politique de confidentialité complète se trouve dans [PRIVACY.md](./PRIVACY.md).
+
+EcoInsights Devtools s'exécute purement dans le navigateur, en y stockant toutes les
+données nécessaires à son fonctionnement, y compris les analyses passées. Les cookies déposés par les réponses
+(`Set-Cookie`) ne sont jamais enregistrés. Lorsque l'option « Rafraîchir la page au début de l'analyse » est cochée,
+l'extension vide le cache HTTP et les service workers du navigateur avant de recharger l'onglet.
 
 Pour estimer le gain d'optimisation des images, l'extension peut re-télécharger les images du site analysé,
 depuis le cache HTTP du navigateur lorsque c'est possible, si les outils de développement n'en ont pas conservé
@@ -318,16 +322,18 @@ ne sont jamais chargées. Rien de tout cela n'est enregistré.
 Pour noter la minification, l'extension lit le contenu des fichiers texte capturé par les outils de développement,
 sans jamais le re-télécharger ni l'enregistrer ; seul l'aperçu d'un fichier peut le re-télécharger, pour l'afficher. Aucune information n'est transmise à un quelconque service tiers.
 
-## License
+## Licence
 
-EcoInsights Profiler est sous license AGPLv3.
+Le code d'EcoInsights Devtools est sous licence AGPLv3 (`AGPL-3.0-or-later`), car il dérive en partie de
+Green IT Analysis, lui-même sous AGPLv3. Les contenus tiers (formule de l'EcoIndex, descriptions RWEB) restent sous
+licence CC BY-NC-ND 4.0, comme précisé ci-dessous.
 
 ```
 Copyright (C) 2015       EcoIndex.fr, Frédéric Bordage (https://www.ecoindex.fr/a-propos/)
 Copyright (C) 2016-2022  Frédéric Bordage
 Copyright (C) 2016       The EcoMeter authors (https://gitlab.com/ecoconceptionweb/ecometer)
 Copyright (C) 2019-2022  GreenIT Analysis, didierfred@gmail.com (https://github.com/cnumr/GreenIT-Analysis)
-Copyright (C) 2024       EcoInsights, bastienhub@gmail.com
+Copyright (C) 2024-2026  EcoInsights Devtools, bastienhub@gmail.com
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as published
@@ -343,9 +349,9 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ```
 
-Le texte complet de la license se trouve dans le fichier [LICENSE](./LICENSE).
+Le texte complet de la licence se trouve dans le fichier [LICENSE](./LICENSE).
 
-La formule de l'EcoIndex est sous license [CC By-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/deed.fr)
+La formule de l'EcoIndex est sous licence [CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/deed.fr)
 
 Les descriptions des bonnes pratiques référencées RWEB sont extraites du « Référentiel d'écoconception web » (RWEB),
 publié par GreenIT.fr dans le cadre des travaux du Collectif conception numérique responsable
@@ -354,7 +360,7 @@ publié par GreenIT.fr dans le cadre des travaux du Collectif conception numéri
 modification, pour un usage non commercial, et ne relèvent pas de la licence AGPLv3 du code. La description du
 critère RGAA 1.1 provient du RGAA 4.1 (DINUM, <https://accessibilite.numerique.gouv.fr>), sous Licence Ouverte 2.0.
 
-Les facteurs d'impacts (ACV) utilisés par EcoInsights pour évaluer les impacts environnementaux ne sont pas sous licence libre - © Frédéric Bordage.
+Les facteurs d'impacts (ACV) utilisés par EcoInsights Devtools pour évaluer les impacts environnementaux ne sont pas sous licence libre - © Frédéric Bordage.
 Merci de demander l'autorisation à son auteur pour les utiliser : fbordage at greenit.fr
 
 Une partie du code provient du projet EcoMeter et Green IT Analysis.

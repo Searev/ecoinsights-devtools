@@ -1,4 +1,4 @@
-# EcoInsights Profiler: architecture review
+# EcoInsights Devtools: architecture review
 
 - **Date:** 2026-10-17
 - **Scope:** whole repository as of `24d6d46` plus the uncommitted best-practices work in the working tree

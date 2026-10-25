@@ -32,7 +32,7 @@ const SavedAnalysis: Component = () => {
           <header class="flex flex-row items-center p-3">
             <Logo />
             <div class="flex flex-col mx-3">
-              <h1>EcoInsights</h1>
+              <h1>EcoInsights Devtools</h1>
               <p>Analyse terminée</p>
             </div>
             <div class="flex-1" />
@@ -103,7 +103,7 @@ const SavedAnalysis: Component = () => {
 
       <ConfirmDialog
         title="Suppression d'une analyse"
-        message="Êtes-vous sûre de vouloir supprimer cette analyse ? Cette action est irréversible."
+        message="Êtes-vous sûr(e) de vouloir supprimer cette analyse ? Cette action est irréversible."
         action="Supprimer cette analyse"
         isActionDestructive={true}
         onClose={() => {

@@ -21,15 +21,15 @@ const About: Component = () => {
   return (
     <div class="p-3">
       <header>
-        <h1 class="pb-3">A propos</h1>
+        <h1 class="pb-3">À propos</h1>
       </header>
       <section>
         <p class="pb-2">
-          EcoInsights Profiler est une extension pour navigateurs (Chrome,
+          EcoInsights Devtools est une extension pour navigateurs (Chrome,
           Firefox) permettant de mesurer l'impact environnemental d'un parcours
           utilisateur complet sur un service numérique.
         </p>
-        <p class="pb-2">Il se fonde sur différents projets pré-existant :</p>
+        <p class="pb-2">Elle se fonde sur différents projets préexistants :</p>
         <ul class="pb-2 px-3 list-disc">
           <For each={CREDIT_ECOINDEX}>
             {(link) => (
@@ -47,12 +47,12 @@ const About: Component = () => {
           </ul>
 
         <p class="pb-2">
-          EcoInsights reprend notamment la méthodologie utilisée par Green IT
+          EcoInsights Devtools reprend notamment la méthodologie utilisée par Green IT
           Analysis, en l'enrichissant de sorte à également fonctionner
           nativement sur des applications monopages (Single Page Applications).
-          En cela, elle diffère de ses prédécesseures en permettant une
+          En cela, elle diffère de ses prédécesseurs en permettant une
           évaluation dynamique de l'impact environnemental des pages web
-          parcourues : vous vérez l'impact environnemental des pages web évoluer
+          parcourues : vous verrez l'impact environnemental des pages web évoluer
           au fur et à mesure que leur DOM est modifié, que de nouvelles requêtes
           sont réalisées, etc.
         </p>

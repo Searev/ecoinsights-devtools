@@ -19,7 +19,7 @@ const Toolbar: Component = () => {
         href="/"
         class="px-2 py-1 hover:bg-surfaceLight ease-out duration-200"
       >
-        EcoInsights
+        EcoInsights Devtools
       </A>
       <select
         onChange={(el) => {
@@ -46,7 +46,7 @@ const Toolbar: Component = () => {
         </For>
       </select>
       <div class="flex-1" />
-      {/* US-030: theme selector, immediately left of "A propos". */}
+      {/* US-030: theme selector, immediately left of "À propos". */}
       <label for="theme-mode" class="px-2 py-1">
         Thème
       </label>
@@ -64,7 +64,7 @@ const Toolbar: Component = () => {
         href="/a-propos"
         class="px-2 py-1 hover:bg-surfaceLight ease-out duration-200"
       >
-        A propos
+        À propos
       </A>
     </nav>
   );

@@ -1,4 +1,4 @@
-# EcoInsights Profiler: architecture
+# EcoInsights Devtools: architecture
 
 > Target architecture introduced by the REFACTOR-001 plan ([TECH-REFACTOR-001-plan.md](TECH-REFACTOR-001-plan.md)), following [the architecture review](../review/ARCHITECTURE-REVIEW.md).
 > Decisions and their reasons: `ARCH-DECISION-*.md` in this folder.

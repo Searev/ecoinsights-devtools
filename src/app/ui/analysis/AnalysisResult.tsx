@@ -100,7 +100,7 @@ export default function AnalysisResult(props: {
 
         <Show
           when={props.pagesAnalysed.length > 0}
-          fallback={<p class="p-3">Chargement en cours...</p>}
+          fallback={<p class="p-3">Chargement en cours…</p>}
         >
           <table class="w-full table-auto">
             <thead class="bg-tableEven border-b-2 border-border">
@@ -108,7 +108,7 @@ export default function AnalysisResult(props: {
                 <th class="p-1 text-left">Page</th>
                 <th class="p-1 text-left">Requêtes</th>
                 <th class="p-1 text-left">Taille de la page</th>
-                <th class="p-1 text-left">Taille du DOM Max</th>
+                <th class="p-1 text-left">Taille max. du DOM</th>
                 <th class="p-1 text-left">EcoIndex</th>
               </tr>
             </thead>
@@ -187,9 +187,9 @@ export default function AnalysisResult(props: {
       <Show when={props.pagesAnalysed.length > 0 && !props.hideTotalImpact}>
         <div class="flex flew-row items-center w-full border-t-2 border-border py-2 px-3">
           <span>Impact total&nbsp;:&nbsp;</span>
-          <span>{totalGreenhouseGasEmissions()}g CO2e</span>
+          <span>{totalGreenhouseGasEmissions()}&nbsp;g CO2e</span>
           <span class="mx-1 h-full border-r border-border" />
-          <span>{consommationEauBleue()}cL d'eau bleue</span>
+          <span>{consommationEauBleue()}&nbsp;cL d'eau bleue</span>
           <span class="mx-1 h-full border-r border-border" />
           <AnalysisImageGainLine pagesAnalysed={props.pagesAnalysed} />
           <span class="flex-1" />

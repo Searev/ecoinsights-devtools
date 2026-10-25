@@ -115,7 +115,7 @@ const PendingAnalysis: Component = () => {
             <header class="flex flex-row items-center p-3">
               <Logo />
               <div class="flex flex-col mx-3">
-                <h1>EcoInsights</h1>
+                <h1>EcoInsights Devtools</h1>
                 <p>Analyse en cours</p>
               </div>
               <div class="flex-1" />

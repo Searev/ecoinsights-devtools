@@ -30,7 +30,7 @@ describe("limitCanvasRule.evaluate", () => {
   it("scenario 2: one canvas gives B", () => {
     const r = evC(canvas({ id: "chart", width: 600, height: 400 }));
     expect(r.compliance).toBe("B");
-    expect(r.detail).toBe(`1 élément ${DETAIL}`);
+    expect(r.detail).toBe("1 élément canvas : vérifier s'il peut être remplacé par un élément HTML");
     expect(r.offenders).toEqual(['<canvas id="chart"> : 600 × 400 px']);
     expect(r.lineRefs).toBeUndefined();
   });

@@ -3,7 +3,7 @@ import { BestPracticeRule } from "../rule";
 /** Number of print stylesheets found in the page. */
 export const printStylesheetRule: BestPracticeRule<number> = {
   id: "PrintStyleSheet",
-  name: "Fournir une print css",
+  name: "Fournir une CSS print",
   category: "css",
   collect: () =>
     document.querySelectorAll(
@@ -18,7 +18,7 @@ export const printStylesheetRule: BestPracticeRule<number> = {
     }
     const indicator = { kind: "presence", present: page > 0, unit: "print-css" } as const;
     return page > 0
-      ? { compliance: "A", detail: "La page dispose d'une print css", indicator }
-      : { compliance: "C", detail: "Pas de Print CSS trouvée", indicator };
+      ? { compliance: "A", detail: "La page dispose d'une CSS print", indicator }
+      : { compliance: "C", detail: "Aucune CSS print trouvée", indicator };
   },
 };

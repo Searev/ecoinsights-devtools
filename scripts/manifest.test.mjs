@@ -1,7 +1,7 @@
 import { fileURLToPath } from "node:url";
 const HERE = fileURLToPath(new URL(".", import.meta.url));
 import { describe, it, expect } from "vitest";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { mergeManifest, readManifest } from "./manifest.mjs";
 
@@ -74,6 +74,16 @@ describe("merged manifests", () => {
       expect(directives).not.toContain("connect-src");
     },
   );
+
+  it.each([["chrome", chrome], ["firefox", firefox]])("%s has the package.json version", (_n, m) => {
+    const pkg = JSON.parse(readFileSync(resolve(root, "package.json"), "utf-8"));
+    expect(m.version).toBe(pkg.version);
+    expect(m.name).toBe("EcoInsights Devtools");
+  });
+
+  it("firefox declares that no data is collected", () => {
+    expect(firefox.browser_specific_settings.gecko.data_collection_permissions).toEqual({ required: ["none"] });
+  });
 
   it("chrome requires Chrome 103 (wasm-unsafe-eval)", () => {
     expect(chrome.minimum_chrome_version).toBe("103");

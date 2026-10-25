@@ -142,7 +142,7 @@ export default function AnalysedPage(props: {
       </div>
 
       <div class="mt-2 flex flex-col px-3">
-        <h2 class="font-bold">Evolution de la taille du DOM</h2>
+        <h2 class="font-bold">Évolution de la taille du DOM</h2>
         <DomProfileChart domProfile={props.analysis.domProfile} />
       </div>
     </div>

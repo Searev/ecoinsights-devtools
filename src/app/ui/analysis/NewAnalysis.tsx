@@ -95,17 +95,17 @@ const NewAnalysis: Component = () => {
             <ul class="mt-1 list-disc pl-3">
               <li>
                 <strong>Pour ce site uniquement&nbsp;:</strong>&nbsp;en
-                sélectionnant "toujours autoriser pour ce site" dans la pop-up
-                "Extensions" de votre navigateur
+                sélectionnant « Toujours autoriser pour ce site » dans la fenêtre
+                « Extensions » de votre navigateur
               </li>
               <li>
                 <strong>Pour tous les sites&nbsp;:</strong>&nbsp;en allant dans
-                la section "Extensions" de votre navigateur et en cochant
-                "Accéder à vos données pour tous les sites web"
+                la section « Extensions » de votre navigateur et en cochant
+                « Accéder à vos données pour tous les sites web »
               </li>
             </ul>
             <button onClick={() => refetch()} class="btn-primary mt-2">
-              Ré-essayer
+              Réessayer
             </button>
           </div>
         }
@@ -114,7 +114,7 @@ const NewAnalysis: Component = () => {
           <header class="flex flex-row items-center">
             <Logo />
             <div class="flex flex-col mx-3">
-              <h1>EcoInsights</h1>
+              <h1>EcoInsights Devtools</h1>
               <p>Nouvelle analyse d’éco-conception</p>
             </div>
             <div class="flex-1" />
@@ -163,7 +163,7 @@ const NewAnalysis: Component = () => {
                 checked
               />
               <label for="refreshOnStart" class="ml-2">
-                Raffraîchir la page au début de l'analyse
+                Rafraîchir la page au début de l'analyse
               </label>
             </div>
 
@@ -175,7 +175,7 @@ const NewAnalysis: Component = () => {
                 checked
               />
               <label for="triggerNewPageOnLinkClicked" class="ml-2">
-                Déclencer l'analyse d'une nouvelle page dès le clic sur un lien
+                Déclencher l'analyse d'une nouvelle page dès le clic sur un lien
               </label>
             </div>
 
@@ -187,7 +187,7 @@ const NewAnalysis: Component = () => {
                 checked
               />
               <label for="triggerNewPageOnFormSubmitted" class="ml-2">
-                Déclencer l'analyse d'une nouvelle page dès la soumission d'un
+                Déclencher l'analyse d'une nouvelle page dès la soumission d'un
                 formulaire
               </label>
             </div>
@@ -201,7 +201,7 @@ const NewAnalysis: Component = () => {
               />
 
               <label for="checkBestPractices" class="ml-2">
-                Déclencer l'analyse des bonnes pratiques (
+                Déclencher l'analyse des bonnes pratiques (
                 {RULES.length} règles)
               </label>
             </div>

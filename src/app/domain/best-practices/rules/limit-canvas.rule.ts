@@ -52,7 +52,7 @@ export const limitCanvasRule: BestPracticeRule<LimitCanvasPage> = {
     const lines: RuleLine[] = sorted.map((c) => ({ text: lineText(c) }));
     return {
       compliance: "B",
-      detail: `${formatCount(n)} ${plural(n, "élément", "éléments")} canvas : vérifier s'ils peuvent être remplacés par des éléments HTML`,
+      detail: `${formatCount(n)} ${plural(n, "élément", "éléments")} canvas : ${n === 1 ? "vérifier s'il peut être remplacé par un élément HTML" : "vérifier s'ils peuvent être remplacés par des éléments HTML"}`,
       ...capLines(lines),
       indicator,
     };
