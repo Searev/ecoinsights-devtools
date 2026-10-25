@@ -56,6 +56,13 @@ Read `docs/architecture/ARCHITECTURE.md` and the `ARCH-DECISION-*.md` files befo
   - Preview bytes come from `PreviewFileLoader` (`infra/file-preview/`, DevTools content else `fetch(force-cache)`, 25 MB cap, header parsing; the browser decodes). Media are streamed by the native player; fonts are `FontFace`s in the panel document only. `createSessionFileCache()` is the one 50 MB LRU shared by the variant and preview stores.
   - Keep the extension pages CSP without `img-src`, `default-src`, `media-src`, `font-src` and `connect-src` (`scripts/manifest.test.mjs` asserts it).
   - Text previews (US-020, ARCH-DECISION-024/025): `MinifyTextFiles` offender lines carry `{ kind: "text", type }`; legacy refs are recognised from the line text (`legacyLinePreview(ruleId, prefix, text)`). The store caches raw bytes plus the charset; the UI decodes them. `renderTextView` puts file text in the DOM through text nodes only, never `innerHTML` & co. (`text-safety.test.ts` scans the sources). The tokenizers in `ui/analysis/preview/syntax/` are in-house and must only be imported via `import("./syntax")`.
+- **Theme (ARCH-DECISION-034, 035).**
+  - Every UI colour is a token: a name in `src/app/ui/theme/theme-types.ts` (`THEME_TOKEN_NAMES`), a dark and a light value in `theme-tokens.ts`, and at least one pair in `contrast-requirements.ts` (text 4.5:1, fields, focus and status graphics 3:1).
+  - Use the token classes (`bg-surface`, `text-strong`, `outline-focus`, `border-danger`…), never Tailwind palette classes (`text-white`, `bg-red-500`, `primary-*`) or hex/`rgb()` literals. Plain CSS uses `rgb(var(--color-<kebab>))`. Icons use `fill="currentColor"`. `theme-sources.test.ts` enforces this outside its allow-list.
+  - Dark must stay as it is; change a dark value only to fix a failing text contrast, and record it.
+  - `<html data-theme>` holds the resolved theme. Components needing a value in JavaScript (Chart.js) read `useTheme().resolved()` and re-apply in an effect, as `DomProfileChart` does with `chart-theme.ts`. Prefer CSS variables, which need no re-render.
+  - `ui/theme/*` and `syntax-palette.ts` are loaded by `tailwind.config.ts` through jiti: relative imports only, no Solid, no browser globals, no `import.meta`.
+  - The pre-paint script is `theme-boot.js`, built by `scripts/vite-theme-boot.mjs`. Never add an inline script (the CSP forbids it).
 - **Build.** The manifest is generated from `src/manifest/base.json` + `chrome.json` / `firefox.json`; only `background`, Chrome's `minimum_chrome_version` and Firefox's `gecko` settings differ (the CSP is in `base.json`). The background and Probe are bundled with esbuild, and the panel with Vite.
 
 ## Tests

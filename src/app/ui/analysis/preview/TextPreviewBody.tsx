@@ -2,7 +2,6 @@ import { Match, Show, Switch, createSignal, onCleanup, onMount } from "solid-js"
 import { PreviewFileStore, TextPreviewSubject } from "../../../domain/models/file-preview";
 import { RETRY_LABEL } from "../comparison/comparison-format";
 import { PreviewInfoList } from "./PreviewInfoList";
-import { syntaxStyleVariables } from "./syntax/syntax-palette";
 import { textLanguage } from "./syntax/syntax-types";
 import { TextDocument } from "./text-document";
 import { createTextPreviewController } from "./text-preview-controller";
@@ -86,7 +85,6 @@ export function TextPreviewBody(props: { subject: TextPreviewSubject; store: Pre
                 role="region"
                 aria-label={TEXT_CONTENT_LABEL}
                 style={{
-                  ...syntaxStyleVariables(),
                   "--gutter-ch": String(gutterDigits(content().document.lineCount)),
                 }}
                 ref={(block) => mountView(block, content().document)}

@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { SYNTAX_PALETTE, TEXT_VIEW_BACKGROUND, TEXT_VIEW_GUTTER, TEXT_VIEW_TEXT } from "./syntax/syntax-palette";
+import { SYNTAX_PALETTES } from "./syntax/syntax-palette";
 import { TokenKind } from "./syntax/syntax-types";
 
 const css = readFileSync(join(__dirname, "text-view.css"), "utf8");
@@ -14,7 +14,7 @@ function declarations(selector: string): string {
 }
 
 describe("text-view.css", () => {
-  it.each(Object.keys(SYNTAX_PALETTE) as TokenKind[])("colours .syntax-%s from its custom property", (kind) => {
+  it.each(Object.keys(SYNTAX_PALETTES.dark.tokens) as TokenKind[])("colours .syntax-%s from its custom property", (kind) => {
     expect(declarations(`.syntax-${kind}`)).toContain(`color: var(--syntax-${kind})`);
   });
 
@@ -22,10 +22,15 @@ describe("text-view.css", () => {
     expect(declarations(".syntax-comment")).toContain("font-style: italic");
   });
 
-  it("uses the palette literals for background, text and gutter", () => {
-    expect(declarations(".text-view")).toContain(`background: ${TEXT_VIEW_BACKGROUND}`);
-    expect(declarations(".text-view")).toContain(`color: ${TEXT_VIEW_TEXT}`);
-    expect(declarations(".text-gutter")).toContain(`color: ${TEXT_VIEW_GUTTER}`);
+  it("takes background, text, gutter and focus from the custom properties", () => {
+    expect(declarations(".text-view")).toContain("background: var(--text-view-background)");
+    expect(declarations(".text-view")).toContain("color: var(--text-view-text)");
+    expect(declarations(".text-gutter")).toContain("color: var(--text-view-gutter)");
+    expect(declarations(".text-view:focus-visible")).toContain("outline: 2px solid var(--text-view-focus)");
+  });
+
+  it("contains no hex colour literal", () => {
+    expect(css).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
   });
 
   it("shows the line number from data-line and keeps it out of selections", () => {

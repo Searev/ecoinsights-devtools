@@ -22,7 +22,7 @@ export default function ConfirmDialog(props: {
   return (
     <dialog
       ref={ref}
-      class="p-3 bg-surface text-white rounded absolute top-20 backdrop-opacity-80"
+      class="p-3 bg-surface text-strong rounded absolute top-20 backdrop-opacity-80"
     >
       <h1 class="mb-2">{props.title}</h1>
       <p class="mb-2">{props.message}</p>

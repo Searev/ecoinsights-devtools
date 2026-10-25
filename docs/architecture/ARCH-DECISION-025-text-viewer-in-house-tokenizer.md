@@ -1,6 +1,6 @@
 # ARCH-DECISION-025: The text viewer colours with an in-house, line-based tokenizer loaded lazily, and builds its DOM from text nodes in time slices
 
-- **Status:** Accepted (US-020)
+- **Status:** Accepted (US-020); colours amended by [ARCH-DECISION-034](ARCH-DECISION-034-theme-tokens-css-variables.md) (US-030): two palettes, and the custom properties come from the stylesheet per theme instead of the body's inline style
 - **Builds on:** [ARCH-DECISION-021](ARCH-DECISION-021-app-dialog-host.md) (one body per preview kind), [023](ARCH-DECISION-023-media-and-font-previews-csp.md) (CSP unchanged)
 
 ## Context

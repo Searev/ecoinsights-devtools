@@ -47,7 +47,7 @@ export function ImageName(props: {
       {(open) => (
         <button
           type="button"
-          class="whitespace-nowrap text-left bg-transparent p-0 font-normal text-inherit hover:underline focus:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-white"
+          class="whitespace-nowrap text-left bg-transparent p-0 font-normal text-inherit hover:underline focus:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus"
           title={props.name.full}
           aria-haspopup="dialog"
           data-dialog-key={dialogKey(props.ruleId ?? "", props.url ?? "")}

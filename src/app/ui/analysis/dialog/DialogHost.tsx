@@ -90,7 +90,7 @@ export function AppDialogProvider(props: {
       <dialog
         ref={dialog}
         aria-labelledby="app-dialog-title"
-        class="p-0 bg-surface text-white rounded"
+        class="p-0 bg-surface text-strong rounded"
         style={{ "max-width": "90vw", "max-height": "90vh" }}
         onCancel={(event) => {
           event.preventDefault();

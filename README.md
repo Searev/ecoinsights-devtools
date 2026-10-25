@@ -26,6 +26,26 @@ Pour mesurer l'impact environnemental d'un service, vous pouvez procéder de la 
 8. Analysez les résultats ainsi obtenus. Vous pouvez récupérer une extration au format csv des indicateurs
    propres à chaque page.
 
+### Thème clair ou sombre
+
+Le sélecteur « Thème », dans la barre d'outils, à gauche de « A propos », propose trois modes :
+
+- **Système** (par défaut) : suit l'apparence claire ou sombre du système ou du navigateur (`prefers-color-scheme`),
+  et change en direct quand elle change, sans recharger l'onglet ;
+- **Clair** : thème clair, quel que soit le réglage du système ;
+- **Sombre** : thème sombre, quel que soit le réglage du système.
+
+Le choix s'applique immédiatement à tous les écrans et aux fenêtres de dialogue ouvertes, graphiques et aperçus de
+fichiers texte compris. Il est mémorisé dans le `localStorage` de l'onglet (clé `ecoinsights.theme`, distincte des
+analyses enregistrées) et appliqué dès l'affichage suivant, sans flash de l'autre thème. Si le stockage est
+indisponible, le mode « Système » s'applique et le choix ne vaut que pour la session. Deux onglets EcoInsights ouverts
+(deux fenêtres DevTools) se synchronisent.
+
+Les deux thèmes respectent les contrastes WCAG 2.1 AA (4,5:1 pour le texte, 3:1 pour les champs et le focus),
+vérifiés par des tests. Le thème sombre est inchangé, à quelques corrections de contraste près : bouton de
+suppression, texte des info-bulles, ligne sélectionnée, textes des graphiques, texte indicatif des champs, et badges
+EcoIndex désormais remplis de la couleur de la note, avec une lettre noire ou blanche lisible.
+
 ### Optimisation des images
 
 Lorsque la vérification des bonnes pratiques est activée, deux bonnes pratiques mesurent le gain réel
@@ -191,6 +211,16 @@ tout accès à l'onglet inspecté passe, sur les deux navigateurs, par l'agent d
 
 En développement (`npm run dev`), hors extension, un `MockBrowser` simule un navigateur, et un `FakeImageEstimator`
 remplace l'encodage réel des images : aucun fichier WebAssembly n'est chargé.
+
+### Thème et couleurs
+
+Chaque couleur de l'interface est un jeton de thème (`src/app/ui/theme/theme-tokens.ts`), avec une valeur claire et une
+valeur sombre. `tailwind.config.ts` en fait des couleurs Tailwind (`bg-surface`, `text-strong`, `outline-focus`…)
+fondées sur des propriétés CSS personnalisées, commutées par l'attribut `data-theme` de `<html>`. Un petit script
+classique (`theme-boot.js`, produit par `scripts/vite-theme-boot.mjs`) applique le thème mémorisé avant le premier
+affichage, sans modifier la politique de sécurité (CSP) de l'extension. N'utilisez pas les couleurs de la palette
+Tailwind (`text-white`, `bg-red-500`…) ni de couleur littérale dans les composants : le test
+`theme-sources.test.ts` le refuse. Voir les décisions d'architecture 034 et 035.
 
 ### Encodage des images
 

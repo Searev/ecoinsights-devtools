@@ -4,7 +4,6 @@ import {
   Title,
   Tooltip,
   Legend,
-  Colors,
   LineController,
   CategoryScale,
   LinearScale,
@@ -16,10 +15,24 @@ import {
 import { DomProfile } from "../../domain/models/dom-infos";
 import "chartjs-adapter-date-fns";
 import { fr } from "date-fns/locale";
+import { useTheme } from "../theme/ThemeProvider";
+import { applyChartColours, chartColours } from "../theme/chart-theme";
+
+type ChartTarget = Parameters<typeof applyChartColours>[0];
 
 export function DomProfileChart(props: { domProfile: DomProfile }) {
   let chartContext!: HTMLCanvasElement;
   let chart: Chart;
+  const theme = useTheme();
+
+  const paint = () => {
+    // Chart's dataset types have no index signature; the helper only sets plain colour keys.
+    applyChartColours(
+      chart as unknown as ChartTarget,
+      chartColours(theme.resolved()),
+    );
+    chart.update("none");
+  };
 
   const getNormalizeDomProfile = (): Point[] => {
     return props.domProfile.map((dom) => ({
@@ -33,7 +46,6 @@ export function DomProfileChart(props: { domProfile: DomProfile }) {
       Title,
       Tooltip,
       Legend,
-      Colors,
       LineController,
       CategoryScale,
       TimeScale,
@@ -69,6 +81,7 @@ export function DomProfileChart(props: { domProfile: DomProfile }) {
         },
       },
     });
+    paint();
   });
 
   onCleanup(() => {
@@ -80,6 +93,13 @@ export function DomProfileChart(props: { domProfile: DomProfile }) {
       const diff = getNormalizeDomProfile();
       chart.data.datasets[0].data = [...diff];
       chart.update();
+    }
+  });
+
+  createEffect(() => {
+    theme.resolved();
+    if (chart != null) {
+      paint();
     }
   });
 

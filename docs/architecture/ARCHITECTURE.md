@@ -234,12 +234,35 @@ sequenceDiagram
   H->>B: close → unmount → revoke URL / release font / stop media
 ```
 
+### 3.8 Theme (US-030)
+
+Decisions: [ARCH-DECISION-034](ARCH-DECISION-034-theme-tokens-css-variables.md) (tokens as CSS custom properties) and [035](ARCH-DECISION-035-pre-paint-theme-boot-script.md) (pre-paint boot script). Everything is in `ui/theme/`; the domain is untouched.
+
+1. **Tokens.**
+   - `theme-types.ts` names the tokens and `theme-tokens.ts` gives each one a dark and a light `#rrggbb`. Dark is the historical look.
+   - `tailwind.config.ts` maps each token to `rgb(var(--color-<kebab>) / <alpha-value>)`, and a bare `border` draws `field`.
+   - Its plugin adds `themeBaseStyles()` to the base layer:
+     - `:root` holds the dark variables;
+     - `@media (prefers-color-scheme: light) :root:not([data-theme="dark"])` and `:root[data-theme="light"]` hold the light ones;
+     - `color-scheme` is set per theme;
+     - the syntax variables of the text preview (`--syntax-*`, `--text-view-*`) are included;
+     - the `dialog::backdrop` colours are literal values per theme.
+2. **Mode.**
+   - `theme-mode.ts` holds the pure parse, resolve and safe-storage functions.
+   - `createThemeController` takes injected storage, `matchMedia`, root and `storage` events. It is the single source of truth: it sets `<html data-theme>` to the resolved theme and persists `ecoinsights.theme`.
+   - It follows the system query in `system` mode and adopts changes from other panels.
+   - `ThemeProvider` (mounted outermost in `index.tsx`) mirrors it into `useTheme()`.
+3. **Before the first paint.** `vite-theme-boot.mjs` bundles `theme-boot.entry.ts` into `theme-boot.js` (IIFE, under 1 kB) and prepends a classic `<script src>` to `index.html`. The CSP is unchanged.
+4. **Charts.** `chart-theme.ts` derives `ChartColours` from the tokens. `DomProfileChart` applies them at creation and in an effect on `useTheme().resolved()`, then calls `chart.update("none")`.
+5. **Contrast.** `contrast-requirements.ts` lists the token pairs: text 4.5:1, and fields, focus and status graphics 3:1. Both themes are tested, and `DARK_CONTRAST_EXCEPTIONS` holds a few non-text dark pairs kept as they were. `syntax-palette.test.ts` checks both syntax palettes, and `ecoindex-badge-style.test.ts` checks the grade letters. `theme-sources.test.ts` rejects palette classes and colour literals in the UI.
+
 ## 4. Build
 
 `npm run build` → `dist/chrome/` and `dist/firefox/` (+ zips). The manifest is generated from `src/manifest/base.json` plus a per-target overlay. Only the `background` key, Chrome's `minimum_chrome_version` (103) and Firefox's `browser_specific_settings` differ.
 
 - **CSP:** both targets get `script-src 'self' 'wasm-unsafe-eval'; object-src 'self'` for extension pages, which is needed to compile WASM. This is why Chrome needs version 103 or later. It deliberately has no `img-src`, `default-src`, `media-src`, `font-src` or `connect-src`, so the dialogs can display `blob:` images, stream remote media, register fonts from bytes and re-download files; `scripts/manifest.test.mjs` asserts it (ARCH-DECISION-016, 023).
 - **Codec worker:** Vite builds it as a classic IIFE (`worker.format: "iife"`) and emits each codec `.wasm` as a separate asset, about 5.9 MB per target. They are loaded only when an estimation needs them. `optimizeDeps.exclude` keeps the `@jsquash/*` packages out of the dev pre-bundle.
+- **Theme boot script:** `themeBootPlugin` (`scripts/vite-theme-boot.mjs`, in `vite.config.ts`) emits `theme-boot.js` next to `index.html`, prepends it to `index.html` only (not `devtools.html`), and serves it in `npm run dev` (ARCH-DECISION-035). `tailwind.config.ts` loads `src/app/ui/theme/*` and the syntax palette through jiti, so those modules use relative imports only and no browser globals.
 - **Type-checking:** `tsconfig.json` adds `@jsquash/jpeg/emscripten-types.d.ts` to `files`, because the glue files imported directly need its global `EmscriptenWasm` namespace (ARCH-DECISION-008).
 
 ## 5. Tests

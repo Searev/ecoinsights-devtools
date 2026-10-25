@@ -123,7 +123,7 @@ export default function AnalysisResult(props: {
                     }
                     class={
                       selectedRow() === index()
-                        ? "bg-primary-500 hover:bg-primary-600 cursor-pointer"
+                        ? "bg-selected hover:bg-selectedHover text-onSelected cursor-pointer"
                         : "hover:bg-surface cursor-pointer"
                     }
                   >
@@ -171,7 +171,7 @@ export default function AnalysisResult(props: {
             >
               <div
                 class={
-                  "w-full border-t-2 hover:border-t-4 active:border-t-4 active:border-primary-500 border-border cursor-row-resize"
+                  "w-full border-t-2 hover:border-t-4 active:border-t-4 active:border-selected border-border cursor-row-resize"
                 }
                 onMouseDown={() => setIsResizing(true)}
               />

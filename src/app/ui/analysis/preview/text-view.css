@@ -1,12 +1,13 @@
-/* US-020: content block of the text preview (single dark theme, see syntax-palette.ts). */
+/* US-020 / US-030: content block of the text preview. Colours come from the custom properties
+   generated per theme from syntax-palette.ts (global stylesheet), so a theme switch recolours it. */
 .text-view {
   width: min(80vw, 64rem);
   max-height: 55vh;
   box-sizing: border-box;
   padding: 0.5rem;
   border-radius: 0.25rem;
-  background: #282828;
-  color: #d4d4d4;
+  background: var(--text-view-background);
+  color: var(--text-view-text);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
   font-size: 12px;
   line-height: 1.5;
@@ -15,7 +16,7 @@
 }
 
 .text-view:focus-visible {
-  outline: 2px solid #9cdcfe;
+  outline: 2px solid var(--text-view-focus);
   outline-offset: 2px;
 }
 
@@ -28,7 +29,7 @@
   width: calc(var(--gutter-ch, 2) * 1ch + 1ch);
   padding-right: 1ch;
   text-align: right;
-  color: #9a9a9a;
+  color: var(--text-view-gutter);
   user-select: none;
 }
 

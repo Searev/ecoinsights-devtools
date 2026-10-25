@@ -1,15 +1,17 @@
 import { describe, expect, it } from "vitest";
+import { RESOLVED_THEMES, ResolvedTheme } from "../../../theme/theme-types";
 import {
   SYNTAX_PALETTE,
+  SYNTAX_PALETTES,
   TEXT_VIEW_BACKGROUND,
   TEXT_VIEW_GUTTER,
   TEXT_VIEW_TEXT,
   contrastRatio,
-  syntaxStyleVariables,
+  syntaxThemeVariables,
 } from "./syntax-palette";
 import { TokenKind, tokenColourVariable } from "./syntax-types";
 
-const KINDS = Object.keys(SYNTAX_PALETTE) as TokenKind[];
+const KINDS = Object.keys(SYNTAX_PALETTES.dark.tokens) as TokenKind[];
 
 function distance(a: string, b: string): number {
   const c = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
@@ -29,34 +31,36 @@ describe("contrastRatio", () => {
   });
 });
 
-describe("palette", () => {
-  it("uses the panel background", () => {
-    expect(TEXT_VIEW_BACKGROUND).toBe("#282828");
-  });
+const HEX = /^#[0-9a-f]{6}$/;
 
-  it("has a hex colour for every token kind", () => {
-    expect(KINDS.sort()).toEqual(
+describe.each(RESOLVED_THEMES)("%s palette", (theme: ResolvedTheme) => {
+  const p = SYNTAX_PALETTES[theme];
+
+  it("has a lowercase #rrggbb colour for every token kind and for the chrome", () => {
+    expect([...KINDS].sort()).toEqual(
       [
         "attr-name", "attr-value", "comment", "key", "keyword", "literal", "number", "property",
         "selector", "string", "tag", "value",
       ].sort(),
     );
-    for (const kind of KINDS) expect(SYNTAX_PALETTE[kind]).toMatch(/^#[0-9a-f]{6}$/);
+    for (const kind of KINDS) expect(p.tokens[kind]).toMatch(HEX);
+    for (const c of [p.background, p.text, p.gutter, p.focus]) expect(c).toMatch(HEX);
   });
 
   it.each(KINDS)("%s has a contrast of at least 4.5:1", (kind) => {
-    expect(contrastRatio(SYNTAX_PALETTE[kind], TEXT_VIEW_BACKGROUND)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(p.tokens[kind], p.background)).toBeGreaterThanOrEqual(4.5);
   });
 
-  it("gives the text and the gutter a contrast of at least 4.5:1", () => {
-    expect(contrastRatio(TEXT_VIEW_TEXT, TEXT_VIEW_BACKGROUND)).toBeGreaterThanOrEqual(4.5);
-    expect(contrastRatio(TEXT_VIEW_GUTTER, TEXT_VIEW_BACKGROUND)).toBeGreaterThanOrEqual(4.5);
+  it("gives the text and the gutter a contrast of at least 4.5:1 and the focus ring 3:1", () => {
+    expect(contrastRatio(p.text, p.background)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(p.gutter, p.background)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(p.focus, p.background)).toBeGreaterThanOrEqual(3);
   });
 
   it("makes comments clearly distinct from the text and from every other kind", () => {
-    expect(distance(SYNTAX_PALETTE.comment, TEXT_VIEW_TEXT)).toBeGreaterThan(60);
+    expect(distance(p.tokens.comment, p.text)).toBeGreaterThan(60);
     for (const kind of KINDS.filter((k) => k !== "comment")) {
-      expect(distance(SYNTAX_PALETTE.comment, SYNTAX_PALETTE[kind])).toBeGreaterThan(60);
+      expect(distance(p.tokens.comment, p.tokens[kind])).toBeGreaterThan(60);
     }
   });
 
@@ -67,21 +71,53 @@ describe("palette", () => {
     ["key", "string", "literal"],
   ] as const)("keeps %s, %s and %s apart", (a, b, c) => {
     for (const [x, y] of [[a, b], [a, c], [b, c]] as const) {
-      expect(distance(SYNTAX_PALETTE[x], SYNTAX_PALETTE[y])).toBeGreaterThan(40);
+      expect(distance(p.tokens[x], p.tokens[y])).toBeGreaterThan(40);
     }
   });
 
   it("keeps every kind apart from the default text colour", () => {
-    for (const kind of KINDS) {
-      expect(distance(SYNTAX_PALETTE[kind], TEXT_VIEW_TEXT)).toBeGreaterThan(25);
-    }
+    for (const kind of KINDS) expect(distance(p.tokens[kind], p.text)).toBeGreaterThan(25);
+  });
+
+  it("exposes exactly the 16 custom properties", () => {
+    const vars = syntaxThemeVariables(theme);
+    expect(Object.keys(vars).sort()).toEqual(
+      [
+        ...KINDS.map(tokenColourVariable),
+        "--text-view-background", "--text-view-text", "--text-view-gutter", "--text-view-focus",
+      ].sort(),
+    );
+    for (const kind of KINDS) expect(vars[tokenColourVariable(kind)]).toBe(p.tokens[kind]);
+    expect(vars["--text-view-background"]).toBe(p.background);
+    expect(vars["--text-view-text"]).toBe(p.text);
+    expect(vars["--text-view-gutter"]).toBe(p.gutter);
+    expect(vars["--text-view-focus"]).toBe(p.focus);
   });
 });
 
-describe("syntaxStyleVariables", () => {
-  it("covers every token kind with its custom property", () => {
-    const vars = syntaxStyleVariables();
-    expect(Object.keys(vars).sort()).toEqual(KINDS.map(tokenColourVariable).sort());
-    for (const kind of KINDS) expect(vars[tokenColourVariable(kind)]).toBe(SYNTAX_PALETTE[kind]);
+describe("palette values", () => {
+  it("keeps the dark palette exactly as it was", () => {
+    expect(SYNTAX_PALETTES.dark).toEqual({
+      background: "#282828",
+      text: "#d4d4d4",
+      gutter: "#9a9a9a",
+      focus: "#9cdcfe",
+      tokens: {
+        comment: "#7fbf7f", string: "#e8a87c", number: "#f4d06f", keyword: "#d291d0",
+        literal: "#7ab8f5", key: "#8fe0e8", selector: "#f07178", property: "#9cdcfe",
+        value: "#b6a6f0", tag: "#f07178", "attr-name": "#9cdcfe", "attr-value": "#e8a87c",
+      },
+    });
+  });
+
+  it("uses the light background token for the light palette", () => {
+    expect(SYNTAX_PALETTES.light.background).toBe("#ffffff");
+  });
+
+  it("keeps the dark aliases", () => {
+    expect(TEXT_VIEW_BACKGROUND).toBe("#282828");
+    expect(TEXT_VIEW_TEXT).toBe("#d4d4d4");
+    expect(TEXT_VIEW_GUTTER).toBe("#9a9a9a");
+    expect(SYNTAX_PALETTE).toEqual(SYNTAX_PALETTES.dark.tokens);
   });
 });

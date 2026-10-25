@@ -1,6 +1,7 @@
 import { defineConfig } from "vite";
 import solidPlugin from "vite-plugin-solid";
 import { resolve } from "path";
+import { themeBootPlugin } from "./scripts/vite-theme-boot.mjs";
 // import devtools from 'solid-devtools/vite';
 
 const root = resolve(__dirname, "src");
@@ -16,6 +17,8 @@ export default defineConfig({
     */
     // devtools(),
     solidPlugin(),
+    // US-030: classic pre-paint script applying the stored theme without relaxing the CSP (ARCH-DECISION-035).
+    themeBootPlugin({ entry: resolve(root, "app/ui/theme/theme-boot.entry.ts") }),
   ],
   server: {
     port: 3000,

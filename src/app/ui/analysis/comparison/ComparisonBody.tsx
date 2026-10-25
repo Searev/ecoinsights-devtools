@@ -100,7 +100,7 @@ export function ComparisonBody(props: { controller: ComparisonController }) {
             </div>
 
             <Show when={state().changed}>
-              <p role="status" class="text-sm text-yellow-500">
+              <p role="status" class="text-sm text-warning">
                 {CHANGED_NOTICE}
               </p>
             </Show>

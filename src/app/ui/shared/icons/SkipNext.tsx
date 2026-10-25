@@ -9,7 +9,7 @@ export default function SkipNext() {
       <path
         d="M9,23l9.917-7L9,9ZM20.667,9V23H23V9Z"
         transform="translate(-9 -9)"
-        fill="#bfc6ce"
+        fill="currentColor"
       />
     </svg>
   );

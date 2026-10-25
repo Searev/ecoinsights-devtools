@@ -9,7 +9,7 @@ export default function SaveErrorBanner() {
       {(error) => (
         <div
           role="alert"
-          class="flex flex-row items-center m-3 p-3 bg-surface border-2 border-red-500 rounded"
+          class="flex flex-row items-center m-3 p-3 bg-surface border-2 border-danger rounded"
         >
           <p class="flex-1">
             {error() === "quota"

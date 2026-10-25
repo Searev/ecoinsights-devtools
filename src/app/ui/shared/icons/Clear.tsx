@@ -9,7 +9,7 @@ export default function Clear() {
       <path
         d="M21.5,8.91,20.09,7.5,14.5,13.09,8.91,7.5,7.5,8.91l5.59,5.59L7.5,20.09,8.91,21.5l5.59-5.59,5.59,5.59,1.41-1.41L15.91,14.5Z"
         transform="translate(-7.5 -7.5)"
-        fill="#bfc6ce"
+        fill="currentColor"
       />
     </svg>
   );

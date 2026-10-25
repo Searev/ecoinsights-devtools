@@ -27,7 +27,7 @@ export default function MetricsDetailSingle(props: {
         <For each={percents()}>
           {({ pageTitle, metric, percent }) => (
             <div
-              class="w-[8px] h-[8px] top-[-14px] bg-white inline-block relative has-tooltip"
+              class="w-[8px] h-[8px] top-[-14px] bg-marker inline-block relative has-tooltip"
               style={{
                 left: `calc(${percent}% - 4px)`,
               }}

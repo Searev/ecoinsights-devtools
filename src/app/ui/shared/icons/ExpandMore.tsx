@@ -9,7 +9,7 @@ export default function Add() {
       <path
         d="M21.355,12.885,16,18.228l-5.355-5.343L9,14.53l7,7,7-7Z"
         transform="translate(-9 -12.885)"
-        fill="#bfc6ce"
+        fill="currentColor"
       />
     </svg>
   );

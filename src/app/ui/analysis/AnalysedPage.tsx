@@ -75,7 +75,7 @@ export default function AnalysedPage(props: {
           class="hover:bg-tableOdd w-full flex flex-row items-center px-3 py-2"
           onClick={() => showRequestDetail(!shouldShowRequestDetail())}
         >
-          <span class="font-bold text-white">
+          <span class="font-bold text-strong">
             {props.analysis.requests.length} requête(s)
           </span>
           <span class="flex-1" />

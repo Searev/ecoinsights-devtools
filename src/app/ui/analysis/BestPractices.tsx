@@ -21,20 +21,20 @@ function ComplianceBadge(props: { compliance?: BestPracticeCompliance }) {
   const style = () => {
     switch (props.compliance) {
       case "A":
-        return "bg-green-500";
+        return "bg-complianceA";
       case "B":
-        return "bg-yellow-500";
+        return "bg-complianceB";
       case "C":
-        return "bg-red-500";
+        return "bg-complianceC";
       default:
-        return "bg-gray-500";
+        return "bg-complianceNone";
     }
   };
   return (
     <span class="flex flex-row items-center mr-2">
       <span class={"w-3 h-3 rounded mr-1 " + style()} aria-hidden="true" />
       <Show when={props.compliance === undefined}>
-        <span class="text-xs rounded px-1 bg-gray-500 text-white">
+        <span class="text-xs rounded px-1 bg-chip text-onChip">
           Non évaluée
         </span>
       </Show>
@@ -89,7 +89,7 @@ export function BestPractices(props: { pagesAnalysed: PageAnalysis[] }) {
             {(progress) => (
               <span class="flex flex-row items-center mr-2">
                 <span
-                  class="w-3 h-3 rounded mr-1 bg-gray-500"
+                  class="w-3 h-3 rounded mr-1 bg-complianceNone"
                   aria-hidden="true"
                 />
                 <span role="status" class="text-xs">

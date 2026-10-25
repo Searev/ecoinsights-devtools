@@ -1,5 +1,28 @@
 # Changelog
 
+## [Unreleased]: US-030, light mode
+
+### Added
+
+- **Light theme and a "Thème" selector (US-030).** A native select labelled "Thème", in the toolbar immediately left of "A propos", offers "Système" (default), "Clair" and "Sombre".
+  - "Système" follows `prefers-color-scheme` and updates live when the OS or browser appearance changes.
+  - The choice applies at once to every screen and to open dialogs: charts are re-coloured without a reload, and an open text preview switches to the light or dark syntax palette.
+  - It is stored in its own `localStorage` key (`ecoinsights.theme`). An unknown value or an unavailable storage means "Système", silently, and the choice then lasts for the session.
+  - Other open EcoInsights panels follow through the `storage` event.
+  - The theme is applied before the first paint by a small external classic script (`theme-boot.js`). The extension CSP is unchanged.
+- A light syntax palette for the text preview, tested at 4.5:1 or more on the light background, like the dark one.
+- Contrast tests on the colour tokens of both themes (WCAG 2.1 AA: 4.5:1 for text, 3:1 for fields, focus and status graphics), and a source guard test that rejects Tailwind palette classes and colour literals in the UI.
+
+### Changed
+
+- Every UI colour is a theme token backed by a CSS custom property (`src/app/ui/theme/theme-tokens.ts`). `tailwind.config.js` became `tailwind.config.ts`. Icons use `currentColor`. The native controls and scrollbars follow the theme through `color-scheme`.
+- The dark theme is unchanged, except where it failed WCAG AA text contrast:
+  - the danger button is `#dc2626` instead of `#ef4444`;
+  - tooltip text and the selected row's text are white;
+  - chart ticks and legends are `#bfc6ce` instead of Chart.js's `#666`, with visible grid lines;
+  - field placeholders are `#a1a8b2` instead of `#9ca3af`;
+  - EcoIndex badges are filled with the grade colour, with a black or white letter (4.5:1 or more for every grade), in both themes.
+
 ## [Unreleased]: US-028 and US-029, epic BP-UX (clearer best-practice panels)
 
 ### Added
