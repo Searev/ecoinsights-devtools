@@ -16,8 +16,9 @@ export const printStylesheetRule: BestPracticeRule<number> = {
         detail: "La page n'a pas pu être inspectée",
       };
     }
+    const indicator = { kind: "presence", present: page > 0, unit: "print-css" } as const;
     return page > 0
-      ? { compliance: "A", detail: "La page dispose d'une print css" }
-      : { compliance: "C", detail: "Pas de Print CSS trouvée" };
+      ? { compliance: "A", detail: "La page dispose d'une print css", indicator }
+      : { compliance: "C", detail: "Pas de Print CSS trouvée", indicator };
   },
 };

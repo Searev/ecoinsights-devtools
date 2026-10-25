@@ -2,6 +2,7 @@ import {
   BestPracticeCategory,
   BestPracticeCompliance,
   BestPracticeId,
+  BestPracticeIndicator,
   LineRef,
 } from "../models/best-practice";
 import {
@@ -58,6 +59,11 @@ export interface RuleResult {
   images?: ImageFinding[];
   /** One per `offenders` line, same order (ARCH-DECISION-017). Build with `capLines` (rule-lines.ts). */
   lineRefs?: (LineRef | null)[];
+  /**
+   * US-029 (ARCH-DECISION-033): derived from the same sets as the grade, detail and lines. Set it
+   * only together with a `compliance`; `evaluateRules` drops it otherwise.
+   */
+  indicator?: BestPracticeIndicator;
 }
 
 /**

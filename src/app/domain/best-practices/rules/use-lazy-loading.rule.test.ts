@@ -281,3 +281,17 @@ describe("useLazyLoadingRule performance", () => {
     }
   });
 });
+
+describe("useLazyLoadingRule indicator (US-029 scenario 10)", () => {
+  it("never sets an indicator, in any branch", () => {
+    const results = [
+      ev(undefined),
+      evEls(),
+      evEls(el({ top: 1200, loading: "lazy" })),
+      evEls(el({ top: 1200 })),
+      evEls(...Array.from({ length: 30 }, (_, i) => el({ url: `https://x.test/${i}.jpg`, top: 1200 + i }))),
+    ];
+    expect(results.map((r) => r.compliance)).toEqual([undefined, "A", "A", "B", "C"]);
+    for (const r of results) expect(r.indicator).toBeUndefined();
+  });
+});

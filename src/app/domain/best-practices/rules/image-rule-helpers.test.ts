@@ -191,3 +191,77 @@ describe("findingFromState (US-005: sourceBytes and natural size)", () => {
     }
   });
 });
+
+describe("summariseImageFindings indicator (US-029)", () => {
+  const find = (url: string, state: ImageFinding["state"], extra: Partial<ImageFinding> = {}): ImageFinding => ({
+    url,
+    originalBytes: 100_000,
+    state,
+    offender: false,
+    declaredType: "image/jpeg",
+    ...extra,
+  });
+  const offender = (url: string) =>
+    find(url, "estimated", { estimatedBytes: 10_000, gainBytes: 90_000, offender: true });
+  const fine = (url: string) =>
+    find(url, "estimated", { estimatedBytes: 99_000, gainBytes: 1_000, offender: false });
+  const base = {
+    detailPrefix: "",
+    extraEvaluatedBytes: 0,
+    offenderPhrase: (n: number) => `${n}`,
+    noOffenderDetail: "none",
+    offenderLine: (f: ImageFinding) => `${f.url.split("/").pop()} : x`,
+  };
+  const withIndicator = { ...base, indicator: { unit: "resized-images" as const, extraEvaluatedImages: 2 } };
+
+  it("sets a ratio with the extra images plus the estimated findings, in the graded branch", () => {
+    const findings = [offender("https://x.org/a.jpg"), fine("https://x.org/b.jpg")];
+    expect(summariseImageFindings(findings, withIndicator).indicator).toEqual({
+      kind: "ratio",
+      offenders: 1,
+      expected: 4,
+      unit: "resized-images",
+    });
+  });
+
+  it("does not count not-evaluated findings as expected", () => {
+    const findings = [
+      offender("https://x.org/a.jpg"),
+      find("https://x.org/f.jpg", "failed", { reason: "bytes-unavailable" }),
+    ];
+    const r = summariseImageFindings(findings, {
+      ...base,
+      indicator: { unit: "unoptimised-images", extraEvaluatedImages: 0 },
+    });
+    expect(r.indicator).toEqual({ kind: "ratio", offenders: 1, expected: 1, unit: "unoptimised-images" });
+  });
+
+  it("gives 0 / extra when there is no finding", () => {
+    expect(summariseImageFindings([], withIndicator).indicator).toEqual({
+      kind: "ratio",
+      offenders: 0,
+      expected: 2,
+      unit: "resized-images",
+    });
+  });
+
+  it("sets no indicator while pending", () => {
+    const r = summariseImageFindings([offender("https://x.org/a.jpg"), find("https://x.org/p.jpg", "pending")], withIndicator);
+    expect(r.progress).toBeDefined();
+    expect(r.indicator).toBeUndefined();
+  });
+
+  it("sets no indicator in the Non évaluée branch", () => {
+    const r = summariseImageFindings(
+      [find("https://x.org/f.jpg", "failed", { reason: "bytes-unavailable" })],
+      withIndicator
+    );
+    expect(r.compliance).toBeUndefined();
+    expect(r.indicator).toBeUndefined();
+  });
+
+  it("leaves the result unchanged without the option", () => {
+    const r = summariseImageFindings([offender("https://x.org/a.jpg")], base);
+    expect("indicator" in r).toBe(false);
+  });
+});

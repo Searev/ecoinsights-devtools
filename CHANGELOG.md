@@ -1,5 +1,34 @@
 # Changelog
 
+## [Unreleased]: US-028 and US-029, epic BP-UX (clearer best-practice panels)
+
+### Added
+
+- **Reference, description and link for each best practice (US-028).**
+  - The panel header shows the referential reference before the rule name, for example "RWEB 0075" or "RGAA 1.1".
+  - The expanded panel shows, before the detail:
+    - the description, quoted verbatim from the RWEB referential or the RGAA, with line breaks kept and `**bold**` as the only markup (plain text, never HTML);
+    - a "Consulter la fiche RWEB 0075" or "Consulter le critère RGAA 1.1" link, opened in a new tab;
+    - the source line.
+  - The data is static (`RULE_METADATA`, looked up by rule id), so analyses saved earlier show it too. Nothing is persisted.
+  - "Compresser les fichiers textuels" is RWEB 0076.
+  - Credits for the RWEB referential (CC BY-NC-ND 4.0, GreenIT.fr / Collectif conception numérique responsable) and the RGAA (Licence Ouverte 2.0, DINUM) are in the README and on the "A propos" page.
+- **Offenders indicator (US-029).** Each rule except "Utiliser le chargement paresseux" now stores, per page, an indicator computed from the same elements as its grade. It takes one of three forms:
+  - a ratio, for example "8 / 10 ressources sans cache (80 %)";
+  - a count, for example "52 requêtes HTTP";
+  - a presence, for example "CSS print : non".
+
+  How it is shown:
+  - The header shows the journey indicator:
+    - ratios are summed over the pages;
+    - counts take the worst page, with "(page la plus chargée)" when several pages count;
+    - the print stylesheet reads "CSS print absente sur 3 pages sur 4".
+  - Each page in "Pages concernées" ends with its own indicator ("Accueil — 8 / 10 …").
+  - A ratio with nothing to check reads "Aucun élément à vérifier". A non-zero share under 1 % reads "< 1 %", and one over 99 % short of 100 % reads "> 99 %".
+  - There is no indicator while a rule is in progress, for "Non évaluée" pages, or for analyses saved earlier (never recomputed).
+  - Stored indicators are validated when loading, and a malformed one is dropped.
+  - Grades, details, thresholds and lines are unchanged. The CSV export is unchanged.
+
 ## [Unreleased]: US-024 to US-027, epic BP3 (four new best practices)
 
 ### Added

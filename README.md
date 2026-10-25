@@ -88,6 +88,27 @@ La minification est analysée en arrière-plan (« Analyse en cours… (2/5 fich
 par les outils de développement est lu : un fichier chargé avant le début de l'enregistrement est « non évalué ».
 Les éléments contenus dans des iframes ne sont pas inspectés, mais leurs requêtes sont prises en compte.
 
+#### Référence, description et indicateur de chaque bonne pratique
+
+- **Référence.** L'en-tête de chaque bonne pratique affiche sa référence dans le référentiel RWEB de GreenIT.fr
+  (par exemple « RWEB 0075 ») ou dans le RGAA (« RGAA 1.1 »). Une fois déplié, le panneau donne la description de la
+  pratique, extraite du référentiel, un lien « Consulter la fiche RWEB 0075 » (ou « Consulter le critère RGAA 1.1 »)
+  ouvert dans un nouvel onglet, et la source. Ces informations sont statiques : elles s'affichent aussi sur les analyses
+  enregistrées. « Utiliser le chargement paresseux » n'a pas de référence. « Limiter le nombre de domaines servant les
+  ressources » n'a pas de lien, et « Ne pas redimensionner les images dans le navigateur » n'a pas de description.
+- **Indicateur.** À droite de l'en-tête, un indicateur compte ce qui ne va pas. Plus le nombre est élevé, plus le
+  problème est important. Il prend l'une de trois formes :
+  - un ratio, par exemple « 8 / 10 ressources sans cache (80 %) ». Sur un parcours, les éléments de toutes les pages
+    sont additionnés ;
+  - un nombre, par exemple « 52 requêtes HTTP ». Sur un parcours, c'est celui de la page la plus chargée, suivi de
+    « (page la plus chargée) » ;
+  - une présence, par exemple « CSS print : non ». Sur un parcours, cela donne par exemple « CSS print absente sur
+    3 pages sur 4 ».
+
+  Chaque page de la liste « Pages concernées » est suivie de son propre indicateur. Aucun indicateur n'est affiché
+  pendant une analyse en cours, pour une page « Non évaluée », pour « Utiliser le chargement paresseux » ni pour les
+  analyses enregistrées avant cette version.
+
 #### Aperçu des éléments signalés
 
 Dans la liste des éléments concernés, le nom raccourci d'un fichier est un bouton qui ouvre un aperçu :
@@ -189,9 +210,15 @@ lorsqu'une estimation en a besoin. Le manifeste autorise `'wasm-unsafe-eval'`, d
    - un `contentAnalyses()` optionnel, pur et synchrone, qui liste les fichiers texte dont le contenu capturé doit
      être mesuré ; `evaluate()` en lit le résultat dans `contents` ;
    - pour les lignes qui nomment un fichier, utilisez `fileLine()` et `capLines()` (`rules/rule-lines.ts`) : le nom
-     est alors raccourci dans l'interface.
-2. Ajoutez la règle au tableau `RULES` de [index.ts](src/app/domain/best-practices/index.ts).
-3. Ajoutez un fichier de test `<nom>.rule.test.ts`. Le test du registre vérifie automatiquement que `collect` est autonome.
+     est alors raccourci dans l'interface ;
+   - `evaluate()` renvoie aussi, avec chaque note, un `indicator` (ratio, nombre ou présence, avec une clé d'unité
+     déclarée dans `domain/models/best-practice.ts` et un libellé dans `ui/analysis/best-practices-view.ts`), calculé
+     à partir des mêmes éléments que la note. Il n'y en a jamais pendant une estimation ni pour « Non évaluée ».
+2. Ajoutez la règle au tableau `RULES` de [index.ts](src/app/domain/best-practices/index.ts), et sa référence,
+   sa description et son lien (ou une entrée vide `{}`) dans `RULE_METADATA`
+   ([rule-metadata.ts](src/app/domain/best-practices/rule-metadata.ts)).
+3. Ajoutez un fichier de test `<nom>.rule.test.ts`. Le test du registre vérifie automatiquement que `collect` est
+   autonome, et que chaque règle a une entrée dans `RULE_METADATA`.
 
 Aucune autre modification n'est nécessaire : la règle fonctionne sur Chrome et Firefox.
 
@@ -289,6 +316,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 Le texte complet de la license se trouve dans le fichier [LICENSE](./LICENSE).
 
 La formule de l'EcoIndex est sous license [CC By-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/deed.fr)
+
+Les descriptions des bonnes pratiques référencées RWEB sont extraites du « Référentiel d'écoconception web » (RWEB),
+publié par GreenIT.fr dans le cadre des travaux du Collectif conception numérique responsable
+(<https://collectif.greenit.fr>, <https://www.ecoconceptionweb.com>, <https://rweb.greenit.fr>), sous licence
+[CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/deed.fr). Elles sont reproduites sans
+modification, pour un usage non commercial, et ne relèvent pas de la licence AGPLv3 du code. La description du
+critère RGAA 1.1 provient du RGAA 4.1 (DINUM, <https://accessibilite.numerique.gouv.fr>), sous Licence Ouverte 2.0.
 
 Les facteurs d'impacts (ACV) utilisés par EcoInsights pour évaluer les impacts environnementaux ne sont pas sous licence libre - © Frédéric Bordage.
 Merci de demander l'autorisation à son auteur pour les utiliser : fbordage at greenit.fr

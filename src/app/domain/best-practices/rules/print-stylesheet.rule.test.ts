@@ -54,3 +54,22 @@ describe("printStylesheetRule.collect", () => {
     expect(printStylesheetRule.collect!()).toBe(0);
   });
 });
+
+describe("printStylesheetRule indicator (US-029)", () => {
+  const ev = (page: number | undefined) =>
+    printStylesheetRule.evaluate({ url: "https://x.test", requests: [], page, estimates: UNAVAILABLE_ESTIMATES });
+
+  it.each([1, 3])("%s print stylesheet(s) gives present: true", (count) => {
+    expect(ev(count).indicator).toEqual({ kind: "presence", present: true, unit: "print-css" });
+  });
+
+  it("no print stylesheet gives present: false", () => {
+    expect(ev(0).indicator).toEqual({ kind: "presence", present: false, unit: "print-css" });
+  });
+
+  it("sets no indicator when the page could not be inspected, although it grades A", () => {
+    const r = ev(undefined);
+    expect(r.compliance).toBe("A");
+    expect(r.indicator).toBeUndefined();
+  });
+});

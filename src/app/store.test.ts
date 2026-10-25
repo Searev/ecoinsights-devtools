@@ -135,6 +135,43 @@ describe("image estimation persistence", () => {
   });
 });
 
+describe("indicator persistence (US-029)", () => {
+  const withBps = (bps: unknown[]) => {
+    const data = JSON.parse(legacy);
+    data.analysis[0].pages[0].bestPractices = bps;
+    return JSON.stringify(data);
+  };
+  const decode = (bps: unknown[]) => parseStoredData(withBps(bps)).analysis[0].pages[0].bestPractices!;
+  const ratio = { kind: "ratio", offenders: 8, expected: 10, unit: "uncached-files" };
+
+  it("round-trips a valid indicator", () => {
+    const parsed = parseStoredData(withBps([{ id: "a", name: "A", compliance: "C", detail: "d", indicator: ratio }]));
+    expect(parsed.analysis[0].pages[0].bestPractices![0].indicator).toEqual(ratio);
+    const again = parseStoredData(serializeStoredData(parsed.services, parsed.analysis));
+    expect(again).toEqual(parsed);
+  });
+
+  it.each([
+    ["unknown kind", { kind: "other", offenders: 1, unit: "requests" }],
+    ["unknown unit", { kind: "count", offenders: 1, unit: "nope" }],
+    ["negative number", { kind: "count", offenders: -1, unit: "requests" }],
+    ["string number", { kind: "count", offenders: "3", unit: "requests" }],
+    ["ratio offenders above expected", { kind: "ratio", offenders: 11, expected: 10, unit: "uncached-files" }],
+    ["not an object", "oops"],
+  ])("drops a malformed indicator (%s) and keeps the rest of the practice", (_name, indicator) => {
+    const [bp] = decode([{ id: "a", name: "A", compliance: "C", detail: "d", offenders: ["x"], indicator }]);
+    expect(bp).not.toHaveProperty("indicator");
+    expect(bp.compliance).toBe("C");
+    expect(bp.detail).toBe("d");
+    expect(bp.offenders).toEqual(["x"]);
+  });
+
+  it("leaves legacy practices without an indicator key", () => {
+    const page = parseStoredData(legacy).analysis[0].pages[0];
+    for (const bp of page.bestPractices!) expect(bp).not.toHaveProperty("indicator");
+  });
+});
+
 function analysisPage2(json: string) {
   return parseStoredData(json).analysis[0].pages[1];
 }

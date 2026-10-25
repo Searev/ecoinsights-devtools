@@ -35,15 +35,17 @@ function pageImages(requests: readonly NetworkRequest[]) {
   }
   const candidates: { url: string; request: NetworkRequest }[] = [];
   let compliantBytes = 0;
+  let compliantCount = 0;
   for (const [url, request] of byUrl) {
     const format = formatFromMime(request.type);
     if (format === "jpeg" || format === "png" || format === "generic") {
       candidates.push({ url, request });
     } else if (format === "webp" || format === "avif") {
       compliantBytes += originalBytesOf(request) ?? 0;
+      compliantCount++;
     }
   }
-  return { candidates, compliantBytes };
+  return { candidates, compliantBytes, compliantCount };
 }
 
 /** Largest CSS box (by area) per normalised URL; undefined when the page was not inspected. */
@@ -91,7 +93,7 @@ export const optimisedFormatsRule: BestPracticeRule<FormatPageData> = {
       .candidates.filter((c) => !isTooLarge(c.request))
       .map((c) => jobOf(c.url, c.request)),
   evaluate: ({ requests, page, estimates }) => {
-    const { candidates, compliantBytes } = pageImages(requests);
+    const { candidates, compliantBytes, compliantCount } = pageImages(requests);
     const boxes = displayBoxes(page);
     const findings: ImageFinding[] = candidates.map(({ url, request }) => {
       const base = { url, declaredType: request.type, target: undefined };
@@ -107,12 +109,17 @@ export const optimisedFormatsRule: BestPracticeRule<FormatPageData> = {
     });
 
     // Images already in WebP/AVIF, or found to be so by the codec, are evaluated and compliant.
-    const optimisedBytes = findings
-      .filter((f) => f.state === "skipped" && f.reason === "already-optimised")
-      .reduce((sum, f) => sum + f.originalBytes, 0);
+    const alreadyOptimised = findings.filter(
+      (f) => f.state === "skipped" && f.reason === "already-optimised"
+    );
+    const optimisedBytes = alreadyOptimised.reduce((sum, f) => sum + f.originalBytes, 0);
 
     const result = summariseImageFindings(findings, {
       detailPrefix: "",
+      indicator: {
+        unit: "unoptimised-images",
+        extraEvaluatedImages: compliantCount + alreadyOptimised.length,
+      },
       extraEvaluatedBytes: compliantBytes + optimisedBytes,
       offenderPhrase: (n) => `${n} image(s) à convertir`,
       noOffenderDetail:

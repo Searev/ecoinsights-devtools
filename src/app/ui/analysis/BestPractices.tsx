@@ -4,6 +4,8 @@ import {
   BestPracticeId,
 } from "../../domain/models/best-practice";
 import { PageAnalysis } from "../../domain/models/page-analysis";
+import { useBrowser } from "../../infra/browser-context";
+import { referenceViewFor } from "./best-practice-reference";
 import ExpandMore from "../shared/icons/ExpandMore";
 import ExpandLess from "../shared/icons/ExpandLess";
 import { ImageName } from "./ImageName";
@@ -41,6 +43,7 @@ function ComplianceBadge(props: { compliance?: BestPracticeCompliance }) {
 }
 
 export function BestPractices(props: { pagesAnalysed: PageAnalysis[] }) {
+  const browser = useBrowser();
   const [onlyShowIgnoredPractices, setOnlyShowIgnoredPractices] =
     createSignal(true);
 
@@ -68,6 +71,7 @@ export function BestPractices(props: { pagesAnalysed: PageAnalysis[] }) {
   };
 
   const Item = (itemProps: { item: AggregatedBestPractice }) => {
+    const reference = () => referenceViewFor(itemProps.item.id);
     const panelId = () => `best-practice-${itemProps.item.id}`;
     return (
       <li class="pb-1 border-b-2 border-border mb-2">
@@ -94,8 +98,20 @@ export function BestPractices(props: { pagesAnalysed: PageAnalysis[] }) {
               </span>
             )}
           </Show>
+          <Show when={reference().label}>
+            {(label) => (
+              <span class="text-xs rounded px-1 mr-2 border border-border whitespace-nowrap">
+                {label()}
+              </span>
+            )}
+          </Show>
           <span>{itemProps.item.name}</span>
           <div class="flex-1" />
+          <Show when={itemProps.item.indicator}>
+            {(indicator) => (
+              <span class="text-xs ml-2 text-right">{indicator()}</span>
+            )}
+          </Show>
           <span aria-hidden="true">
             <Show when={isExpanded(itemProps.item.id)} fallback={<ExpandMore />}>
               <ExpandLess />
@@ -104,6 +120,39 @@ export function BestPractices(props: { pagesAnalysed: PageAnalysis[] }) {
         </button>
         <Show when={isExpanded(itemProps.item.id)}>
           <div id={panelId()}>
+            <Show when={reference().description}>
+              {(description) => (
+                <p class="my-2">
+                  <For each={description()}>
+                    {(line) => (
+                      <span class="block">
+                        <For each={line}>
+                          {(segment) => (
+                            <Show when={segment.bold} fallback={segment.text}>
+                              <strong>{segment.text}</strong>
+                            </Show>
+                          )}
+                        </For>
+                      </span>
+                    )}
+                  </For>
+                </p>
+              )}
+            </Show>
+            <Show when={reference().link}>
+              {(link) => (
+                <button
+                  type="button"
+                  class="underline mb-1 block text-left"
+                  onClick={() => browser.openUrlInNewTab(link().url)}
+                >
+                  {link().label}
+                </button>
+              )}
+            </Show>
+            <Show when={reference().source}>
+              {(source) => <p class="text-xs mb-2">{source()}</p>}
+            </Show>
             <p class="mb-2 whitespace-pre-line">{itemProps.item.detail}</p>
             <Show when={itemProps.item.error}>
               <p class="mb-2 italic">Erreur : {itemProps.item.error}</p>
@@ -150,7 +199,14 @@ export function BestPractices(props: { pagesAnalysed: PageAnalysis[] }) {
               <p class="font-medium">Pages concernées :</p>
               <ul class="list-disc">
                 <For each={itemProps.item.pages}>
-                  {(page) => <li class="ml-4">{page}</li>}
+                  {(page, i) => {
+                    const ind = () => itemProps.item.pageIndicators[i()];
+                    return (
+                      <li class="ml-4">
+                        {`${page}${ind() ? ` — ${ind()}` : ""}`}
+                      </li>
+                    );
+                  }}
                 </For>
               </ul>
             </Show>

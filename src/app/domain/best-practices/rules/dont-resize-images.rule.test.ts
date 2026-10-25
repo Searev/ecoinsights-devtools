@@ -480,3 +480,64 @@ describe("US-005: findings carry the natural size and the display box", () => {
     expect(f).toMatchObject({ state: "skipped", natural: { width: 1200, height: 800 }, display: { width: 300, height: 200 } });
   });
 });
+
+describe("US-029: indicator", () => {
+  const url = (n: string) => `https://x.test/${n}.jpg`;
+  const big = (n: string) => img({ src: url(n) });
+  const exact = (n: string) => img({ src: url(n), naturalWidth: 600, naturalHeight: 400 });
+  const job = (n: string) => resizeJob(url(n), 600, 400);
+  const reqOf = (n: string, size = 100_000) => request(url(n), { transferSize: size, responseSize: size });
+
+  it("counts 1 offender among 4 evaluated images (1/4)", () => {
+    const page = pageOf([big("off"), big("noise"), exact("ok1"), exact("ok2"), big("huge")]);
+    const requests = [
+      reqOf("off", 240_000),
+      reqOf("noise"),
+      reqOf("ok1"),
+      reqOf("ok2"),
+      reqOf("huge", 30_000_000),
+    ];
+    const estimates = lookupOf([
+      [job("off"), done(240_000, 60_000)],
+      [job("noise"), done(100_000, 98_000)],
+    ]);
+    const r = ev(page, requests, estimates);
+    expect(r.images!.find((f) => f.url === url("huge"))?.reason).toBe("too-large");
+    expect(r.indicator).toEqual({ kind: "ratio", offenders: 1, expected: 4, unit: "resized-images" });
+  });
+
+  it("is 0 / 0 with no oversized image and no candidate (grade A)", () => {
+    const r = ev(pageOf([]));
+    expect(r.compliance).toBe("A");
+    expect(r.indicator).toEqual({ kind: "ratio", offenders: 0, expected: 0, unit: "resized-images" });
+  });
+
+  it("has no indicator when the page was not inspected", () => {
+    const r = ev(undefined);
+    expect(r.compliance).toBe("A");
+    expect(r.indicator).toBeUndefined();
+  });
+
+  it("has no indicator while estimating", () => {
+    const r = ev(pageOf([big("a")]), [reqOf("a")]);
+    expect(r.progress).toBeDefined();
+    expect(r.indicator).toBeUndefined();
+  });
+
+  it("has no indicator when no image could be evaluated", () => {
+    const r = ev(pageOf([big("huge")]), [reqOf("huge", 30_000_000)]);
+    expect(r.compliance).toBeUndefined();
+    expect(r.indicator).toBeUndefined();
+  });
+
+  it("scenario 8: counts every offender before the 20-line cap", () => {
+    const names = Array.from({ length: 25 }, (_, i) => `i${i}`);
+    const r = ev(
+      pageOf(names.map(big)),
+      names.map((n) => reqOf(n)),
+      lookupOf(names.map((n): [EstimationJob, EstimateState] => [job(n), done(100_000, 20_000)]))
+    );
+    expect(r.offenders).toHaveLength(21);
+    expect(r.indicator).toEqual({ kind: "ratio", offenders: 25, expected: 25, unit: "resized-images" });
+  });
+});

@@ -24,7 +24,11 @@ export const limitDomainsRule: BestPracticeRule<never> = {
     }
     const n = byHost.size;
     if (n === 0) {
-      return { compliance: "A", detail: "Aucune ressource chargée par la page" };
+      return {
+        compliance: "A",
+        detail: "Aucune ressource chargée par la page",
+        indicator: { kind: "count", offenders: 0, unit: "domains" },
+      };
     }
     const lines: RuleLine[] = [...byHost]
       .sort(
@@ -38,6 +42,7 @@ export const limitDomainsRule: BestPracticeRule<never> = {
       compliance: n < DOMAIN_LIMIT ? "A" : n === DOMAIN_LIMIT ? "B" : "C",
       detail: `${n} ${plural(n, "domaine sert", "domaines servent")} les ressources de la page`,
       ...capLines(lines),
+      indicator: { kind: "count", offenders: n, unit: "domains" },
     };
   },
 };

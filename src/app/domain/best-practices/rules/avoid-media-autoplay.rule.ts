@@ -76,6 +76,7 @@ export const avoidMediaAutoplayRule: BestPracticeRule<AvoidMediaAutoplayPage> = 
       return {
         compliance: "A",
         detail: "Aucune vidéo ni aucun son lancé ou préchargé automatiquement",
+        indicator: { kind: "ratio", offenders: 0, expected: page.media.length, unit: "autoplay-media" },
       };
     }
     const n = offenders.length;
@@ -90,6 +91,7 @@ export const avoidMediaAutoplayRule: BestPracticeRule<AvoidMediaAutoplayPage> = 
       compliance: n === 1 ? "B" : "C",
       detail: `${n} ${plural(n, "vidéo ou son lancé", "vidéos ou sons lancés")} ou ${plural(n, "préchargé", "préchargés")} automatiquement`,
       ...capLines(lines),
+      indicator: { kind: "ratio", offenders: n, expected: page.media.length, unit: "autoplay-media" },
     };
   },
 };

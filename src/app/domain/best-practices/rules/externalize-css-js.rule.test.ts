@@ -244,3 +244,33 @@ describe("externalizeCssJsRule performance", () => {
     expect(ms).toBeLessThan(20);
   });
 });
+
+describe("externalizeCssJsRule indicator (US-029)", () => {
+  const unit = "inline-blocks" as const;
+
+  it("no block gives a count of 0", () => {
+    expect(evB().indicator).toEqual({ kind: "count", offenders: 0, unit });
+  });
+
+  it("2 blocks (A, no lines) give a count of 2", () => {
+    const r = evB(style(10), script(10));
+    expect(r.compliance).toBe("A");
+    expect(r.indicator).toEqual({ kind: "count", offenders: 2, unit });
+  });
+
+  it("4 blocks (B) give a count of 4", () => {
+    const r = evB(...many(4));
+    expect(r.compliance).toBe("B");
+    expect(r.indicator).toEqual({ kind: "count", offenders: 4, unit });
+  });
+
+  it("more than 20 blocks (C) give the full count", () => {
+    const r = evB(...many(30));
+    expect(r.compliance).toBe("C");
+    expect(r.indicator).toEqual({ kind: "count", offenders: 30, unit });
+  });
+
+  it("sets no indicator when the page could not be inspected", () => {
+    expect(ev(undefined).indicator).toBeUndefined();
+  });
+});

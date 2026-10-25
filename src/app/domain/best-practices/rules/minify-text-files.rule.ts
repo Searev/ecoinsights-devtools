@@ -73,7 +73,11 @@ export const minifyTextFilesRule: BestPracticeRule = {
   evaluate: ({ requests, contents = UNAVAILABLE_CONTENTS }) => {
     const files = filesInScope(requests);
     if (files.length === 0) {
-      return { compliance: "A", detail: "Aucun fichier CSS, JavaScript, HTML ou SVG à vérifier" };
+      return {
+        compliance: "A",
+        detail: "Aucun fichier CSS, JavaScript, HTML ou SVG à vérifier",
+        indicator: { kind: "ratio", offenders: 0, expected: 0, unit: "unminified-files" },
+      };
     }
 
     // Declared builds are never read: they are minified and out of the progress.
@@ -149,6 +153,7 @@ export const minifyTextFilesRule: BestPracticeRule = {
         compliance: "A",
         detail: `Tous les fichiers CSS, JavaScript, HTML et SVG sont minifiés${suffix}`,
         ...linesOf(lines),
+        indicator: { kind: "ratio", offenders: 0, expected: evaluated, unit: "unminified-files" },
       };
     }
     return {
@@ -157,6 +162,7 @@ export const minifyTextFilesRule: BestPracticeRule = {
         `${offenders.length} ${plural(offenders.length, "fichier", "fichiers")} sur ${evaluated} ` +
         `${plural(offenders.length, "non minifié", "non minifiés")}${suffix}`,
       ...linesOf(lines),
+      indicator: { kind: "ratio", offenders: offenders.length, expected: evaluated, unit: "unminified-files" },
     };
   },
 };

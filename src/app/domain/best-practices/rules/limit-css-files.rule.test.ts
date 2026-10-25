@@ -160,3 +160,24 @@ describe("limitCssFilesRule", () => {
     expect(best).toBeLessThan(10);
   });
 });
+
+describe("limitCssFilesRule indicator (US-029)", () => {
+  it("counts the distinct CSS files in every graded branch", () => {
+    for (const [n, grade] of [[0, "B"], [2, "B"], [4, "A"], [10, "A"], [11, "C"]] as const) {
+      const r = ev(many(n));
+      expect(r.compliance).toBe(grade);
+      expect(r.indicator).toEqual({ kind: "count", offenders: n, unit: "css-files" });
+    }
+  });
+
+  it("counts a URL requested twice once", () => {
+    const r = ev([req("/a.css"), req("/a.css"), req("/b.css")]);
+    expect(r.indicator).toEqual({ kind: "count", offenders: 2, unit: "css-files" });
+  });
+
+  it("scenario 8: offenders is the full count above the 20-line cap", () => {
+    const r = ev(many(25));
+    expect(r.offenders!.length).toBeLessThan(25);
+    expect(r.indicator).toEqual({ kind: "count", offenders: 25, unit: "css-files" });
+  });
+});

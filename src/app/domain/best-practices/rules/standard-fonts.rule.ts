@@ -45,10 +45,16 @@ export const standardFontsRule: BestPracticeRule<FontsPageData> = {
         ? "B"
         : "C";
     // One line per URL (fragment ignored), heaviest first; the size is the transfer size, else the body size (US-018).
-    const lines = [...lastRequestPerUrl(requests, isFont).values()]
+    const distinctFonts = [...lastRequestPerUrl(requests, isFont).values()];
+    const lines = distinctFonts
       .map((r) => ({ url: r.url.href, size: r.transferSize > 0 ? r.transferSize : r.responseSize }))
       .sort((a, b) => b.size - a.size || a.url.localeCompare(b.url))
       .map((f) => fileLine(f.url, ` : ${formatKo(f.size)}`, "", { kind: "font" }));
-    return { compliance, detail, ...capLines(lines) };
+    return {
+      compliance,
+      detail,
+      indicator: { kind: "count", offenders: distinctFonts.length, unit: "custom-fonts" },
+      ...capLines(lines),
+    };
   },
 };

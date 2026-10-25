@@ -149,3 +149,28 @@ describe("standardFontsRule.collect", () => {
     expect(standardFontsRule.collect!()).toEqual({ families: [] });
   });
 });
+
+describe("US-029: indicator", () => {
+  it("counts distinct font URLs: one URL requested twice plus another gives 2", () => {
+    const r = ev([font("a.woff2", 10_000), font("a.woff2", 10_000), font("b.woff2", 10_000)]);
+    expect(r.indicator).toEqual({ kind: "count", offenders: 2, unit: "custom-fonts" });
+  });
+
+  it("ignores the fragment when counting URLs", () => {
+    const r = ev([font("a.woff2", 10_000), req("https://x.test/a.woff2#v2", { transferSize: 10_000 })]);
+    expect(r.indicator).toEqual({ kind: "count", offenders: 1, unit: "custom-fonts" });
+  });
+
+  it("is 0 without font (grade A)", () => {
+    const r = ev([req("https://x.test/a.css", { type: "text/css" })]);
+    expect(r.compliance).toBe("A");
+    expect(r.indicator).toEqual({ kind: "count", offenders: 0, unit: "custom-fonts" });
+  });
+
+  it("scenario 8: counts every font before the 20-line cap", () => {
+    const r = ev(Array.from({ length: 25 }, (_, i) => font(`f${i}.woff2`, 10_000)));
+    expect(r.compliance).toBe("C");
+    expect(r.offenders).toHaveLength(21);
+    expect(r.indicator).toEqual({ kind: "count", offenders: 25, unit: "custom-fonts" });
+  });
+});

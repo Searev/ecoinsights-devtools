@@ -333,3 +333,58 @@ describe("US-005: display box from the format collector", () => {
     expect(out.images[0]).toEqual({ src: "https://x.test/a.png", displayWidth: 0, displayHeight: 0 });
   });
 });
+
+describe("US-029: indicator", () => {
+  const png = (name: string) => `https://x.test/${name}.png`;
+  const pngJob = (name: string) => convertJob(png(name), "image/png");
+  const pngReq = (name: string) => request(png(name), { type: "image/png", transferSize: 100_000 });
+  const toWebp = (src: number, enc: number): EstimateState =>
+    estimated(src, enc, { sourceFormat: "png", target: WEBP_LOSSLESS });
+
+  it("counts offenders among WebP/AVIF requests, evaluated and already-optimised images (2/5)", () => {
+    const requests = [
+      pngReq("a"),
+      pngReq("b"),
+      pngReq("c"),
+      pngReq("d"),
+      request("https://x.test/w.webp", { type: "image/webp", transferSize: 20_000 }),
+    ];
+    const estimates = lookupOf([
+      [pngJob("a"), toWebp(100_000, 40_000)],
+      [pngJob("b"), toWebp(100_000, 50_000)],
+      [pngJob("c"), toWebp(100_000, 99_000)],
+      [pngJob("d"), { status: "skipped", reason: "already-optimised" }],
+    ]);
+    const r = ev(requests, estimates);
+    expect(r.indicator).toEqual({ kind: "ratio", offenders: 2, expected: 5, unit: "unoptimised-images" });
+  });
+
+  it("is 0 / 0 without image (grade A)", () => {
+    const r = ev([]);
+    expect(r.compliance).toBe("A");
+    expect(r.indicator).toEqual({ kind: "ratio", offenders: 0, expected: 0, unit: "unoptimised-images" });
+  });
+
+  it("has no indicator while estimating", () => {
+    const r = ev([pngReq("a")]);
+    expect(r.progress).toBeDefined();
+    expect(r.indicator).toBeUndefined();
+  });
+
+  it("has no indicator when nothing could be estimated", () => {
+    const r = ev([pngReq("a")], lookupOf([[pngJob("a"), { status: "failed", reason: "decode-failed" }]]));
+    expect(r.compliance).toBeUndefined();
+    expect(r.detail).toContain("Non évaluée");
+    expect(r.indicator).toBeUndefined();
+  });
+
+  it("scenario 8: counts every offender before the 20-line cap", () => {
+    const names = Array.from({ length: 25 }, (_, i) => `i${i}`);
+    const r = ev(
+      names.map(pngReq),
+      lookupOf(names.map((n): [EstimationJob, EstimateState] => [pngJob(n), toWebp(100_000, 40_000)]))
+    );
+    expect(r.offenders).toHaveLength(21);
+    expect(r.indicator).toEqual({ kind: "ratio", offenders: 25, expected: 25, unit: "unoptimised-images" });
+  });
+});

@@ -23,6 +23,25 @@ function rule(
 const input = { url: "https://example.com", requests: [], pageData: {} };
 
 describe("evaluateRules", () => {
+  it("copies the indicator only together with a compliance (US-029)", () => {
+    const indicator = { kind: "count", offenders: 3, unit: "requests" } as const;
+    const res = evaluateRules(
+      [
+        rule("graded", { evaluate: () => ({ compliance: "B", detail: "d", indicator }) }),
+        rule("ungraded", { evaluate: () => ({ detail: "d", indicator }) }),
+        rule("pending", {
+          evaluate: () => ({ detail: "d", progress: { done: 0, total: 2 }, indicator }),
+        }),
+        rule("plain"),
+      ],
+      input
+    );
+    expect(res[0].indicator).toEqual(indicator);
+    expect(res[1]).not.toHaveProperty("indicator");
+    expect(res[2]).not.toHaveProperty("indicator");
+    expect(res[3]).not.toHaveProperty("indicator");
+  });
+
   it("copies lineRefs (ARCH-DECISION-017)", () => {
     const lineRefs = [{ url: "https://x.test/a.js" }, null];
     const res = evaluateRules(

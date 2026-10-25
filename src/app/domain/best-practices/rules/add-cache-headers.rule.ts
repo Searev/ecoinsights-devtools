@@ -118,7 +118,11 @@ export const addCacheHeadersRule: BestPracticeRule = {
       if (!verdict.compliant) offenders.push({ url: r.url.href, size: r.responseSize, reason: verdict.reason });
     }
     if (offenders.length === 0) {
-      return { compliance: "A", detail: "Tous les fichiers statiques peuvent être mis en cache" };
+      return {
+        compliance: "A",
+        detail: "Tous les fichiers statiques peuvent être mis en cache",
+        indicator: { kind: "ratio", offenders: 0, expected: statics.length, unit: "uncached-files" },
+      };
     }
     offenders.sort((a, b) => b.size - a.size || a.url.localeCompare(b.url));
     const n = offenders.length;
@@ -127,6 +131,7 @@ export const addCacheHeadersRule: BestPracticeRule = {
       compliance: n === statics.length ? "C" : "B",
       detail: `${n} ${plural(n, "fichier statique", "fichiers statiques")} sur ${statics.length} ${plural(n, "ne peut pas", "ne peuvent pas")} être mis en cache`,
       ...capLines(lines),
+      indicator: { kind: "ratio", offenders: n, expected: statics.length, unit: "uncached-files" },
     };
   },
 };

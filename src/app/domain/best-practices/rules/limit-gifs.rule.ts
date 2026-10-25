@@ -71,7 +71,11 @@ export const limitGifsRule: BestPracticeRule<LimitGifsPage> = {
     const mention =
       ignored === 0 ? "" : ` (${ignored} GIF de moins de 5 ko ${plural(ignored, "ignoré", "ignorés")})`;
     if (gifs.length === 0) {
-      return { compliance: "A", detail: ignored === 0 ? "Aucun fichier GIF" : `Aucun fichier GIF de 5 ko ou plus${mention}` };
+      return {
+        compliance: "A",
+        detail: ignored === 0 ? "Aucun fichier GIF" : `Aucun fichier GIF de 5 ko ou plus${mention}`,
+        indicator: { kind: "count", offenders: 0, unit: "gif-files" },
+      };
     }
     const lines: RuleLine[] = gifs.map((g) =>
       fileLine(
@@ -86,6 +90,7 @@ export const limitGifsRule: BestPracticeRule<LimitGifsPage> = {
     return {
       compliance: gifs.length === 1 ? "B" : "C",
       detail: `${gifs.length} ${plural(gifs.length, "fichier", "fichiers")} GIF : à remplacer par une vidéo WebM ou MP4 pour les animations, ou un format d'image moderne${mention}`,
+      indicator: { kind: "count", offenders: gifs.length, unit: "gif-files" },
       ...capLines(lines),
     };
   },

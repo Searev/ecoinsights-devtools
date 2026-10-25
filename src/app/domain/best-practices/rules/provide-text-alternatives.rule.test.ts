@@ -391,3 +391,40 @@ describe("provideTextAlternativesRule performance", () => {
     expect(ms).toBeLessThan(50);
   });
 });
+
+describe("provideTextAlternativesRule indicator (US-029)", () => {
+  it("counts missing plus empty out of every element, decorative ones included", () => {
+    const r = evEls(
+      el({ url: "https://x.test/ok.png", alt: "Logo" }),
+      el({ url: "https://x.test/deco.png", decorative: true }),
+      el({ url: "https://x.test/pixel.gif", trackingPixel: true }),
+      el({ url: "https://x.test/missing.png" }),
+      el({ url: "https://x.test/empty.png", alt: "" })
+    );
+    const lines = r.offenders ?? [];
+    expect(lines.length).toBeGreaterThan(0);
+    expect(r.indicator).toEqual({
+      kind: "ratio",
+      offenders: lines.length,
+      expected: 5,
+      unit: "missing-alternatives",
+    });
+    expect(r.indicator).toMatchObject({ offenders: 2, expected: 5 });
+  });
+
+  it("compliant page gives 0/n", () => {
+    const r = evEls(el({ alt: "Logo" }), el({ url: "https://x.test/b.png", decorative: true }));
+    expect(r.compliance).toBe("A");
+    expect(r.indicator).toEqual({ kind: "ratio", offenders: 0, expected: 2, unit: "missing-alternatives" });
+  });
+
+  it("more than 20 offenders: offenders equals the number of flagged elements", () => {
+    const items = Array.from({ length: 30 }, (_, i) => el({ url: `https://x.test/${i}.png` }));
+    const r = evEls(...items);
+    expect(r.indicator).toEqual({ kind: "ratio", offenders: 30, expected: 30, unit: "missing-alternatives" });
+  });
+
+  it("sets no indicator when the page could not be inspected", () => {
+    expect(ev(undefined).indicator).toBeUndefined();
+  });
+});

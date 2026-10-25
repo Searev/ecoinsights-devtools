@@ -120,3 +120,30 @@ describe("limitDomainsRule.evaluate", () => {
     expect(best).toBeLessThan(10);
   });
 });
+
+describe("limitDomainsRule indicator (US-029)", () => {
+  it("counts the distinct domains in every graded branch", () => {
+    for (const [n, grade] of [[3, "A"], [5, "B"], [6, "C"]] as const) {
+      const r = ev(hosts(n));
+      expect(r.compliance).toBe(grade);
+      expect(r.indicator).toEqual({ kind: "count", offenders: n, unit: "domains" });
+    }
+  });
+
+  it("counts a host once whatever its requests", () => {
+    const r = ev([req("https://a.test/1"), req("https://a.test/2"), req("https://b.test/1")]);
+    expect(r.indicator).toEqual({ kind: "count", offenders: 2, unit: "domains" });
+  });
+
+  it("0 requests gives a count of 0", () => {
+    const r = ev([]);
+    expect(r.compliance).toBe("A");
+    expect(r.indicator).toEqual({ kind: "count", offenders: 0, unit: "domains" });
+  });
+
+  it("scenario 8: offenders is the full count above the 20-line cap", () => {
+    const r = ev(hosts(25));
+    expect(r.offenders!.length).toBeLessThan(25);
+    expect(r.indicator).toEqual({ kind: "count", offenders: 25, unit: "domains" });
+  });
+});

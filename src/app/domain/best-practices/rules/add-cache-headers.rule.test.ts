@@ -268,3 +268,36 @@ describe("addCacheHeadersRule.evaluate", () => {
     expect(best).toBeLessThan(10);
   });
 });
+
+describe("addCacheHeadersRule indicator (US-029)", () => {
+  const cached = { "cache-control": "max-age=3600" };
+  const statics = (good: number, bad: number) => [
+    ...Array.from({ length: good }, (_, i) => req(`/ok${i}.js`, cached)),
+    ...Array.from({ length: bad }, (_, i) => req(`/bad${i}.js`, {})),
+  ];
+
+  it("scenario 1: 8 of 10 uncached static files", () => {
+    const r = ev(statics(2, 8));
+    expect(r.compliance).toBe("B");
+    expect(r.indicator).toEqual({ kind: "ratio", offenders: 8, expected: 10, unit: "uncached-files" });
+  });
+
+  it("grade C: every static file uncached", () => {
+    const r = ev(statics(0, 3));
+    expect(r.compliance).toBe("C");
+    expect(r.indicator).toEqual({ kind: "ratio", offenders: 3, expected: 3, unit: "uncached-files" });
+  });
+
+  it("grade A: 0 of n, and 0 of 0 without static file", () => {
+    expect(ev(statics(4, 0)).indicator).toEqual({ kind: "ratio", offenders: 0, expected: 4, unit: "uncached-files" });
+    const empty = ev([]);
+    expect(empty.compliance).toBe("A");
+    expect(empty.indicator).toEqual({ kind: "ratio", offenders: 0, expected: 0, unit: "uncached-files" });
+  });
+
+  it("scenario 8: offenders is the full count above the 20-line cap", () => {
+    const r = ev(statics(0, 25));
+    expect(r.offenders!.length).toBeLessThan(25);
+    expect(r.indicator).toEqual({ kind: "ratio", offenders: 25, expected: 25, unit: "uncached-files" });
+  });
+});

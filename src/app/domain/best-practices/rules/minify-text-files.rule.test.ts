@@ -368,3 +368,59 @@ describe("MinifyTextFiles rule", () => {
     });
   });
 });
+
+describe("MinifyTextFiles indicator (US-029)", () => {
+  it("scenario 7: 2 declared, 3 analysed with 1 unminified and 1 not evaluated gives 1 of 5", () => {
+    const res = run(
+      [
+        file("a.min.js", 50_000),
+        file("b.min.js", 50_000),
+        file("c.js", 50_000),
+        file("d.js", 50_000),
+        file("e.js", 50_000),
+        file("f.js", 50_000),
+      ],
+      { "c.js": analysed(0.6), "d.js": analysed(0.01), "e.js": analysed(0.01), "f.js": unavailable }
+    );
+    expect(res.compliance).toBe("B");
+    expect(res.indicator).toEqual({ kind: "ratio", offenders: 1, expected: 5, unit: "unminified-files" });
+  });
+
+  it("grade C: every evaluated file is an offender", () => {
+    const res = run([file("a.js", 50_000), file("b.js", 50_000)], { "a.js": analysed(0.6), "b.js": analysed(0.6) });
+    expect(res.compliance).toBe("C");
+    expect(res.indicator).toEqual({ kind: "ratio", offenders: 2, expected: 2, unit: "unminified-files" });
+  });
+
+  it("grade A: 0 of evaluated, declared builds included", () => {
+    const res = run([file("a.js", 50_000), file("b.min.js", 50_000)], { "a.js": analysed(0.01) });
+    expect(res.compliance).toBe("A");
+    expect(res.indicator).toEqual({ kind: "ratio", offenders: 0, expected: 2, unit: "unminified-files" });
+  });
+
+  it("no file in scope gives A with 0 of 0", () => {
+    const res = run([], {});
+    expect(res.compliance).toBe("A");
+    expect(res.indicator).toEqual({ kind: "ratio", offenders: 0, expected: 0, unit: "unminified-files" });
+  });
+
+  it("scenario 6: pending has no indicator", () => {
+    const res = run([file("a.js", 50_000), file("b.js", 50_000)], { "a.js": analysed(0.6), "b.js": pending });
+    expect(res.compliance).toBeUndefined();
+    expect(res.progress).toBeDefined();
+    expect(res.indicator).toBeUndefined();
+  });
+
+  it("evaluated === 0 has no compliance and no indicator", () => {
+    const res = run([file("a.js", 50_000)], { "a.js": unavailable });
+    expect(res.compliance).toBeUndefined();
+    expect(res.indicator).toBeUndefined();
+  });
+
+  it("scenario 8: offenders is the full count above the 20-line cap", () => {
+    const names = Array.from({ length: 25 }, (_, i) => `f${String(i).padStart(2, "0")}.js`);
+    const res = run(names.map((n) => file(n, 50_000)), Object.fromEntries(names.map((n) => [n, analysed(0.6)])));
+    expect(res.offenders!.length).toBeLessThan(25);
+    expect(res.indicator).toEqual({ kind: "ratio", offenders: 25, expected: 25, unit: "unminified-files" });
+  });
+});

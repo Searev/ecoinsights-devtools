@@ -22,12 +22,14 @@ export const limitCssFilesRule: BestPracticeRule<never> = {
       .map((r) => ({ url: r.url.href, weight: cssWeight(r) }))
       .sort((a, b) => b.weight - a.weight || a.url.localeCompare(b.url));
     const n = files.length;
+    const indicator = { kind: "count", offenders: n, unit: "css-files" } as const;
     const lines = () => capLines(files.map((f) => fileLine(f.url, ` : ${formatKo(f.weight)}`)));
 
     if (n === 0) {
       return {
         compliance: "B",
         detail: "Aucun fichier CSS : vérifier que les styles ne sont pas intégrés à la page",
+        indicator,
       };
     }
     if (n <= 2) {
@@ -35,13 +37,15 @@ export const limitCssFilesRule: BestPracticeRule<never> = {
         compliance: "B",
         detail: `${n} ${plural(n, "fichier", "fichiers")} CSS : vérifier que les styles ne sont pas regroupés dans un fichier trop volumineux ou intégrés à la page`,
         ...lines(),
+        indicator,
       };
     }
-    if (n <= 10) return { compliance: "A", detail: `${n} fichiers CSS` };
+    if (n <= 10) return { compliance: "A", detail: `${n} fichiers CSS`, indicator };
     return {
       compliance: "C",
       detail: `${formatCount(n)} fichiers CSS : à regrouper (10 au plus recommandés)`,
       ...lines(),
+      indicator,
     };
   },
 };

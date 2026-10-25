@@ -218,3 +218,36 @@ describe("avoidMediaAutoplayRule performance", () => {
     expect(ms).toBeLessThan(20);
   });
 });
+
+describe("avoidMediaAutoplayRule indicator (US-029)", () => {
+  it("2 of 5 media flagged gives a ratio 2/5", () => {
+    const r = evM(
+      media({ url: "https://x.test/1.mp4", autoplay: true }),
+      media({ url: "https://x.test/2.mp4", preload: "auto" }),
+      media({ url: "https://x.test/3.mp4" }),
+      media({ kind: "audio", url: "https://x.test/4.mp3" }),
+      media({ url: "https://x.test/5.mp4", preload: "none" })
+    );
+    expect(r.indicator).toEqual({ kind: "ratio", offenders: 2, expected: 5, unit: "autoplay-media" });
+  });
+
+  it("none flagged gives 0/n", () => {
+    const r = evM(media(), media({ kind: "audio", url: "https://x.test/p.mp3" }));
+    expect(r.compliance).toBe("A");
+    expect(r.indicator).toEqual({ kind: "ratio", offenders: 0, expected: 2, unit: "autoplay-media" });
+  });
+
+  it("no media at all gives 0/0", () => {
+    expect(evM().indicator).toEqual({ kind: "ratio", offenders: 0, expected: 0, unit: "autoplay-media" });
+  });
+
+  it("counts every flagged media beyond the line cap", () => {
+    const items = Array.from({ length: 25 }, (_, i) => media({ url: `https://x.test/${i}.mp4`, autoplay: true }));
+    const r = evM(...items);
+    expect(r.indicator).toEqual({ kind: "ratio", offenders: 25, expected: 25, unit: "autoplay-media" });
+  });
+
+  it("sets no indicator when the page could not be inspected", () => {
+    expect(ev(undefined).indicator).toBeUndefined();
+  });
+});

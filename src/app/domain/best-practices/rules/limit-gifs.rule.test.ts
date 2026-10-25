@@ -316,3 +316,32 @@ describe("limitGifsRule.collect", () => {
     expect(JSON.parse(JSON.stringify(rebuilt))).toEqual(rebuilt);
   });
 });
+
+describe("US-029: indicator", () => {
+  it("counts the GIFs of 5 ko or more and ignores the small ones", () => {
+    const r = ev([
+      gif("/a.gif", 10_000),
+      gif("/b.gif", 20_000),
+      gif("/c.gif", 30_000),
+      gif("/s1.gif", 100),
+      gif("/s2.gif", 200),
+    ]);
+    expect(r.indicator).toEqual({ kind: "count", offenders: 3, unit: "gif-files" });
+  });
+
+  it("is 0 for grade A, with or without ignored GIFs", () => {
+    const none = { kind: "count", offenders: 0, unit: "gif-files" };
+    expect(ev([]).indicator).toEqual(none);
+    expect(ev([gif("/s.gif", 100)]).indicator).toEqual(none);
+  });
+
+  it("is 1 for grade B", () => {
+    expect(ev([gif("/a.gif", 45_000)]).indicator).toEqual({ kind: "count", offenders: 1, unit: "gif-files" });
+  });
+
+  it("scenario 8: counts every GIF before the 20-line cap", () => {
+    const r = ev(Array.from({ length: 25 }, (_, i) => gif(`/g${i}.gif`, 10_000)));
+    expect(r.offenders).toHaveLength(21);
+    expect(r.indicator).toEqual({ kind: "count", offenders: 25, unit: "gif-files" });
+  });
+});

@@ -163,7 +163,11 @@ export const provideTextAlternativesRule: BestPracticeRule<ProvideTextAlternativ
       else if (verdict === "empty") empty.push(e);
     }
     if (missing.length === 0 && empty.length === 0) {
-      return { compliance: "A", detail: "Aucun contenu multimédia sans alternative textuelle" };
+      return {
+        compliance: "A",
+        detail: "Aucun contenu multimédia sans alternative textuelle",
+        indicator: { kind: "ratio", offenders: 0, expected: page.elements.length, unit: "missing-alternatives" },
+      };
     }
     // Array.prototype.sort is stable: equal URLs keep their document order.
     const sorted = [
@@ -189,6 +193,12 @@ export const provideTextAlternativesRule: BestPracticeRule<ProvideTextAlternativ
       compliance: missing.length > 0 ? "C" : "B",
       detail: parts.join(", "),
       ...capLines(lines),
+      indicator: {
+        kind: "ratio",
+        offenders: missing.length + empty.length,
+        expected: page.elements.length,
+        unit: "missing-alternatives",
+      },
     };
   },
 };

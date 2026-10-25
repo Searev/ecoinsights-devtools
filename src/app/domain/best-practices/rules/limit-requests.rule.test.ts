@@ -89,3 +89,17 @@ describe("limitRequestsRule.evaluate", () => {
     expect(r.lineRefs).toBeUndefined();
   });
 });
+
+describe("limitRequestsRule indicator (US-029)", () => {
+  it("counts every request in every graded branch", () => {
+    for (const [n, grade] of [[0, "A"], [25, "A"], [41, "B"], [52, "B"], [71, "C"]] as const) {
+      const r = ev(many(n));
+      expect(r.compliance).toBe(grade);
+      expect(r.indicator).toEqual({ kind: "count", offenders: n, unit: "requests" });
+    }
+  });
+
+  it("scenario 3: 52 requests gives a count of 52", () => {
+    expect(ev(many(52)).indicator).toEqual({ kind: "count", offenders: 52, unit: "requests" });
+  });
+});

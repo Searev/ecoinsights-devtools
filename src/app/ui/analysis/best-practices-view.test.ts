@@ -2,14 +2,17 @@ import { describe, expect, it } from "vitest";
 import {
   aggregateBestPractices,
   describeProgress,
+  formatIndicator,
   groupByCategory,
+  journeyIndicator,
   worstCompliance,
 } from "./best-practices-view";
 import { PageAnalysis } from "../../domain/models/page-analysis";
-import { BestPractice } from "../../domain/models/best-practice";
+import { BestPractice, BestPracticeIndicator } from "../../domain/models/best-practice";
 import { ImageFinding } from "../../domain/models/image-estimation";
 import { fileLabel, summariseImageFindings } from "../../domain/best-practices/rules/image-rule-helpers";
 import { displayImageName } from "./image-name";
+import { formatCount } from "../../domain/best-practices/rules/rule-lines";
 import { comparisonSubjectFor } from "../../domain/image-comparison/comparison-subject";
 
 const page = (title: string, bps: BestPractice[]) =>
@@ -51,7 +54,7 @@ describe("aggregateBestPractices", () => {
 describe("groupByCategory", () => {
   it("groups in a stable order and skips empty categories", () => {
     const mk = (id: string, category: any) => ({
-      id, name: id, category, detail: "", pages: [], offenders: [], lines: [],
+      id, name: id, category, detail: "", pages: [], pageIndicators: [], offenders: [], lines: [],
     });
     const groups = groupByCategory([mk("a", "js"), mk("b", "content"), mk("c", "js")]);
     expect(groups.map((g) => g.category)).toEqual(["content", "js"]);
@@ -511,5 +514,248 @@ describe("preview subjects of file lines (ARCH-DECISION-020)", () => {
     });
     aggregateBestPractices([pageWith([bp("x", ["a"], [null])], requests as unknown as unknown[])]);
     expect(reads).toBe(0);
+  });
+});
+
+describe("US-029 indicators", () => {
+  const ratio = (offenders: number, expected: number, unit: "uncached-files" | "unminified-files" | "http1-requests" = "uncached-files"): BestPracticeIndicator => ({
+    kind: "ratio",
+    offenders,
+    expected,
+    unit,
+  });
+  const count = (offenders: number, unit: "requests" | "domains" = "requests"): BestPracticeIndicator => ({ kind: "count", offenders, unit });
+  const presence = (present: boolean): BestPracticeIndicator => ({ kind: "presence", present, unit: "print-css" });
+
+  const cache = { id: "AddCacheHeaders", name: "Ajouter des entêtes Expires ou Cache-Control", category: "network" as const };
+  const requests = { id: "LimitRequests", name: "Limiter le nombre de requêtes HTTP", category: "network" as const };
+  const printCss = { id: "PrintStyleSheet", name: "Fournir une print css", category: "css" as const };
+  const compress = { id: "CompressTextFiles", name: "Compresser les fichiers textuels", category: "network" as const };
+  const minify = { id: "MinifyTextFiles", name: "Minifier les fichiers CSS, JavaScript, HTML et SVG", category: "js" as const };
+
+  const entryOf = (pages: PageAnalysis[]) => aggregateBestPractices(pages)[0];
+
+  describe("formatIndicator", () => {
+    it("formats a ratio with the percentage and the unit", () => {
+      expect(formatIndicator(ratio(8, 10))).toBe("8 / 10 ressources sans cache (80 %)");
+    });
+
+    it("agrees the unit with expected, singular for 0 and 1", () => {
+      expect(formatIndicator(ratio(1, 5, "unminified-files"))).toBe("1 / 5 fichiers non minifiés (20 %)");
+      expect(formatIndicator(ratio(1, 1, "unminified-files"))).toBe("1 / 1 fichier non minifié (100 %)");
+      expect(formatIndicator(ratio(0, 1, "http1-requests"))).toBe("0 / 1 requête HTTP/1 (0 %)");
+    });
+
+    it("shows a nothing-to-check message when expected is 0", () => {
+      expect(formatIndicator(ratio(0, 0))).toBe("Aucun élément à vérifier");
+    });
+
+    it("never rounds a non-zero ratio to 0 % or a partial one to 100 %", () => {
+      expect(formatIndicator(ratio(1, 1000))).toBe(`1 / ${formatCount(1000)} ressources sans cache (< 1 %)`);
+      expect(formatIndicator(ratio(999, 1000))).toBe(`${formatCount(999)} / ${formatCount(1000)} ressources sans cache (> 99 %)`);
+      expect(formatIndicator(ratio(0, 1000))).toContain("(0 %)");
+      expect(formatIndicator(ratio(1000, 1000))).toContain("(100 %)");
+    });
+
+    it("uses French grouping with a narrow no-break space", () => {
+      expect(formatIndicator(count(1500))).toBe(`${formatCount(1500)} requêtes HTTP`);
+      expect(formatIndicator(count(1500))).toContain("\u202f");
+    });
+
+    it("formats a count, singular for 0 and 1", () => {
+      expect(formatIndicator(count(52))).toBe("52 requêtes HTTP");
+      expect(formatIndicator(count(1))).toBe("1 requête HTTP");
+      expect(formatIndicator(count(0, "domains"))).toBe("0 domaine");
+      expect(formatIndicator(count(2, "domains"))).toBe("2 domaines");
+    });
+
+    it("formats a presence", () => {
+      expect(formatIndicator(presence(true))).toBe("CSS print : oui");
+      expect(formatIndicator(presence(false))).toBe("CSS print : non");
+    });
+
+    it("labels every unit in singular and plural", () => {
+      const counts = ["inline-blocks", "canvas-elements", "css-files", "domains", "gif-files", "requests", "custom-fonts"] as const;
+      expect(formatIndicator({ kind: "ratio", offenders: 1, expected: 2, unit: "autoplay-media" })).toBe("1 / 2 médias en lecture ou chargement automatique (50 %)");
+      expect(formatIndicator({ kind: "ratio", offenders: 1, expected: 1, unit: "uncompressed-files" })).toBe("1 / 1 fichier non compressé (100 %)");
+      expect(formatIndicator({ kind: "ratio", offenders: 1, expected: 2, unit: "resized-images" })).toBe("1 / 2 images redimensionnées (50 %)");
+      expect(formatIndicator({ kind: "ratio", offenders: 1, expected: 2, unit: "unoptimised-images" })).toBe("1 / 2 images au format non optimisé (50 %)");
+      expect(formatIndicator({ kind: "ratio", offenders: 1, expected: 1, unit: "missing-alternatives" })).toBe("1 / 1 contenu sans alternative textuelle (100 %)");
+      expect(formatIndicator({ kind: "ratio", offenders: 1, expected: 2, unit: "missing-alternatives" })).toBe("1 / 2 contenus sans alternative textuelle (50 %)");
+      const plurals: Record<(typeof counts)[number], [string, string]> = {
+        "inline-blocks": ["bloc CSS ou JavaScript en ligne", "blocs CSS ou JavaScript en ligne"],
+        "canvas-elements": ["élément canvas", "éléments canvas"],
+        "css-files": ["fichier CSS", "fichiers CSS"],
+        domains: ["domaine", "domaines"],
+        "gif-files": ["fichier GIF", "fichiers GIF"],
+        requests: ["requête HTTP", "requêtes HTTP"],
+        "custom-fonts": ["fichier de police personnalisé", "fichiers de police personnalisés"],
+      };
+      for (const unit of counts) {
+        expect(formatIndicator({ kind: "count", offenders: 1, unit })).toBe(`1 ${plurals[unit][0]}`);
+        expect(formatIndicator({ kind: "count", offenders: 3, unit })).toBe(`3 ${plurals[unit][1]}`);
+      }
+    });
+  });
+
+  describe("journeyIndicator", () => {
+    it("returns undefined for no indicator", () => {
+      expect(journeyIndicator([])).toBeUndefined();
+    });
+
+    it("sums ratios", () => {
+      expect(journeyIndicator([ratio(8, 10), ratio(4, 30)])).toBe("12 / 40 ressources sans cache (30 %)");
+    });
+
+    it("keeps the worst count and flags it when several pages", () => {
+      expect(journeyIndicator([count(25), count(80), count(41)])).toBe("80 requêtes HTTP (page la plus chargée)");
+      expect(journeyIndicator([count(52)])).toBe("52 requêtes HTTP");
+    });
+
+    it("summarises presence", () => {
+      expect(journeyIndicator([presence(false), presence(false), presence(false), presence(true)])).toBe("CSS print absente sur 3 pages sur 4");
+      expect(journeyIndicator([presence(false), presence(true)])).toBe("CSS print absente sur 1 page sur 2");
+      expect(journeyIndicator([presence(true), presence(true)])).toBe("CSS print : oui");
+      expect(journeyIndicator([presence(false)])).toBe("CSS print : non");
+      expect(journeyIndicator([presence(true)])).toBe("CSS print : oui");
+    });
+
+    it("keeps only the indicators of the first one's kind and unit", () => {
+      expect(journeyIndicator([ratio(1, 2), count(9), ratio(1, 2, "unminified-files"), ratio(1, 2)])).toBe("2 / 4 ressources sans cache (50 %)");
+    });
+  });
+
+  describe("aggregateBestPractices", () => {
+    it("scenario 1: one page, ratio in the header", () => {
+      const e = entryOf([page("Accueil", [{ ...cache, compliance: "C", detail: "d", indicator: ratio(8, 10) }])]);
+      expect(e.indicator).toBe("8 / 10 ressources sans cache (80 %)");
+      expect(e.pageIndicators).toEqual(["8 / 10 ressources sans cache (80 %)"]);
+    });
+
+    it("scenario 2: journey sum and per-page indicators", () => {
+      const e = entryOf([
+        page("Accueil", [{ ...cache, compliance: "C", detail: "d", indicator: ratio(8, 10) }]),
+        page("Liste", [{ ...cache, compliance: "B", detail: "d", indicator: ratio(4, 30) }]),
+      ]);
+      expect(e.indicator).toBe("12 / 40 ressources sans cache (30 %)");
+      expect(e.pages).toEqual(["Accueil", "Liste"]);
+      expect(e.pageIndicators).toEqual(["8 / 10 ressources sans cache (80 %)", "4 / 30 ressources sans cache (13 %)"]);
+    });
+
+    it("keeps pageIndicators parallel to pages when a compliant page is skipped", () => {
+      const e = entryOf([
+        page("Ok", [{ ...cache, compliance: "A", detail: "d", indicator: ratio(0, 5) }]),
+        page("Bad", [{ ...cache, compliance: "C", detail: "d", indicator: ratio(5, 5) }]),
+      ]);
+      expect(e.pages).toEqual(["Bad"]);
+      expect(e.pageIndicators).toEqual(["5 / 5 ressources sans cache (100 %)"]);
+      expect(e.indicator).toBe("5 / 10 ressources sans cache (50 %)");
+    });
+
+    it("scenario 3: worst page for a count, none suffix on one page", () => {
+      const mk = (n: number, title: string) => page(title, [{ ...requests, compliance: "C", detail: "d", indicator: count(n) }]);
+      expect(entryOf([mk(25, "a"), mk(80, "b"), mk(41, "c")]).indicator).toBe("80 requêtes HTTP (page la plus chargée)");
+      expect(entryOf([mk(52, "a")]).indicator).toBe("52 requêtes HTTP");
+    });
+
+    it("scenario 4: presence over 4 pages", () => {
+      const mk = (present: boolean, title: string) =>
+        page(title, [{ ...printCss, compliance: present ? "A" : "C", detail: "d", indicator: presence(present) }]);
+      const e = entryOf([mk(false, "p1"), mk(false, "p2"), mk(false, "p3"), mk(true, "p4")]);
+      expect(e.indicator).toBe("CSS print absente sur 3 pages sur 4");
+      expect(e.pages).toEqual(["p1", "p2", "p3"]);
+      expect(e.pageIndicators).toEqual(["CSS print : non", "CSS print : non", "CSS print : non"]);
+    });
+
+    it("scenario 5: nothing to check", () => {
+      const e = entryOf([page("Accueil", [{ ...compress, compliance: "A", detail: "d", indicator: ratio(0, 0) }])]);
+      expect(e.indicator).toBe("Aucun élément à vérifier");
+    });
+
+    it("scenario 6: pending rule shows no indicator at all", () => {
+      const e = entryOf([
+        page("p1", [{ ...minify, compliance: "C", detail: "d", indicator: ratio(1, 5) }]),
+        page("p2", [{ ...minify, detail: "d", progress: { done: 2, total: 5, unit: "files" } }]),
+      ]);
+      expect(e.progress).toBeDefined();
+      expect(e).not.toHaveProperty("indicator");
+      expect(e.pageIndicators.every((p) => p === undefined)).toBe(true);
+      expect(e.pageIndicators).toHaveLength(e.pages.length);
+    });
+
+    it("scenario 6: a Non évaluée page is excluded from the sum", () => {
+      const e = entryOf([
+        page("p1", [{ ...cache, compliance: "C", detail: "d", indicator: ratio(8, 10) }]),
+        page("p2", [{ ...cache, detail: "Non évaluée" }]),
+      ]);
+      expect(e.indicator).toBe("8 / 10 ressources sans cache (80 %)");
+      expect(e.pages).toEqual(["p1", "p2"]);
+      expect(e.pageIndicators).toEqual(["8 / 10 ressources sans cache (80 %)", undefined]);
+    });
+
+    it("ignores a stray indicator on an ungraded page", () => {
+      const e = entryOf([page("p1", [{ ...cache, detail: "?", indicator: ratio(1, 2) }])]);
+      expect(e).not.toHaveProperty("indicator");
+      expect(e.pageIndicators).toEqual([undefined]);
+    });
+
+    it("scenario 7: declared and analysed files are counted, non-evaluated excluded", () => {
+      const e = entryOf([page("p", [{ ...minify, compliance: "C", detail: "d", indicator: ratio(1, 5, "unminified-files") }])]);
+      expect(e.indicator).toBe("1 / 5 fichiers non minifiés (20 %)");
+    });
+
+    it("scenario 9: legacy pages have no indicator and nothing else changes", () => {
+      const e = entryOf([page("p", [{ ...cache, compliance: "C", detail: "d", offenders: ["u"] }])]);
+      expect(e).not.toHaveProperty("indicator");
+      expect(e.pageIndicators).toEqual([undefined]);
+      expect(e.pages).toEqual(["p"]);
+      expect(e.offenders).toEqual(["u"]);
+      expect(e.detail).toBe("d");
+      expect(e.compliance).toBe("C");
+    });
+
+    it("ignores legacy pages when mixed with new ones", () => {
+      const e = entryOf([
+        page("old", [{ ...cache, compliance: "C", detail: "d" }]),
+        page("new", [{ ...cache, compliance: "C", detail: "d", indicator: ratio(2, 4) }]),
+      ]);
+      expect(e.indicator).toBe("2 / 4 ressources sans cache (50 %)");
+      expect(e.pageIndicators).toEqual([undefined, "2 / 4 ressources sans cache (50 %)"]);
+    });
+  });
+
+  describe("NFR", () => {
+    it("aggregates 50 pages x 17 rules under 5 ms (best of 10)", () => {
+      const pages = Array.from({ length: 50 }, (_, p) =>
+        page(
+          `P${p}`,
+          Array.from({ length: 17 }, (_, r) => ({
+            id: `Rule${r}`,
+            name: `Rule ${r}`,
+            category: "network" as const,
+            compliance: "C" as const,
+            detail: "d",
+            indicator: r % 2 === 0 ? ratio(p % 7, 10 + p) : count(p + r),
+          }))
+        )
+      );
+      let best = Infinity;
+      for (let i = 0; i < 10; i++) {
+        const t = performance.now();
+        aggregateBestPractices(pages);
+        best = Math.min(best, performance.now() - t);
+      }
+      console.info(`NFR aggregateBestPractices 50x17 best of 10: ${best.toFixed(3)} ms`);
+      expect(best).toBeLessThan(5);
+      const inds = Array.from({ length: 50 }, (_, i) => ratio(i % 7, 10 + i));
+      let bestJourney = Infinity;
+      for (let i = 0; i < 10; i++) {
+        const t = performance.now();
+        journeyIndicator(inds);
+        bestJourney = Math.min(bestJourney, performance.now() - t);
+      }
+      console.info(`NFR journeyIndicator 50 best of 10: ${bestJourney.toFixed(3)} ms`);
+      expect(bestJourney).toBeLessThan(5);
+    });
   });
 });

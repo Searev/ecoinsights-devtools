@@ -154,3 +154,47 @@ describe("preferHttp2Rule.evaluate", () => {
     expect(best).toBeLessThan(10);
   });
 });
+
+describe("preferHttp2Rule indicator (US-029)", () => {
+  it("grade A: 0 of counted", () => {
+    const r = ev([...many(30, "2"), ...many(10, "3")]);
+    expect(r.indicator).toEqual({ kind: "ratio", offenders: 0, expected: 40, unit: "http1-requests" });
+  });
+
+  it("grade B: legacy requests of counted ones", () => {
+    const r = ev([...many(47, "2"), ...many(3, "1.1", "old.test")]);
+    expect(r.compliance).toBe("B");
+    expect(r.indicator).toEqual({ kind: "ratio", offenders: 3, expected: 50, unit: "http1-requests" });
+  });
+
+  it("grade C: every counted request is HTTP/1", () => {
+    const r = ev(many(4, "1.0"));
+    expect(r.compliance).toBe("C");
+    expect(r.indicator).toEqual({ kind: "ratio", offenders: 4, expected: 4, unit: "http1-requests" });
+  });
+
+  it("excludes unknown versions and cache hits from expected", () => {
+    const r = ev([...many(2, "1.1"), ...many(3, undefined), req("https://x.test/cached", "1.1", { transferSize: 0 })]);
+    expect(r.indicator).toEqual({ kind: "ratio", offenders: 2, expected: 2, unit: "http1-requests" });
+  });
+
+  it("network === 0 gives A with 0 of 0", () => {
+    const r = ev([]);
+    expect(r.compliance).toBe("A");
+    expect(r.indicator).toEqual({ kind: "ratio", offenders: 0, expected: 0, unit: "http1-requests" });
+  });
+
+  it("counted === 0 has no compliance and no indicator", () => {
+    const r = ev(many(3, undefined));
+    expect(r.compliance).toBeUndefined();
+    expect(r.indicator).toBeUndefined();
+  });
+
+  it("scenario 8: offenders is the legacy request count, not the line count", () => {
+    const r = ev(Array.from({ length: 30 }, (_, i) => req(`https://h${i}.test/a`, "1.1")).flatMap((x) => [x, { ...x, url: new URL(`${x.url.href}b`) }]));
+    const legacy = Number(/\((\d+) sur \d+\)/.exec(r.detail)![1]);
+    expect(legacy).toBe(60);
+    expect(r.offenders!.length).toBeLessThan(30);
+    expect(r.indicator).toEqual({ kind: "ratio", offenders: legacy, expected: 60, unit: "http1-requests" });
+  });
+});

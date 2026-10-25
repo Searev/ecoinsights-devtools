@@ -39,7 +39,8 @@ export const limitCanvasRule: BestPracticeRule<LimitCanvasPage> = {
   evaluate: ({ page }): RuleResult => {
     if (page === undefined) return { detail: "La page n'a pas pu être inspectée" };
     const n = page.canvases.length;
-    if (n === 0) return { compliance: "A", detail: "Aucun élément canvas sur la page" };
+    const indicator = { kind: "count", offenders: n, unit: "canvas-elements" } as const;
+    if (n === 0) return { compliance: "A", detail: "Aucun élément canvas sur la page", indicator };
     // Displayed first (area descending), then non-displayed (0 × 0); Array.sort is stable.
     const shown = (c: CanvasInfo) => !(c.width === 0 && c.height === 0);
     const sorted = page.canvases.slice().sort((a, b) => {
@@ -53,6 +54,7 @@ export const limitCanvasRule: BestPracticeRule<LimitCanvasPage> = {
       compliance: "B",
       detail: `${formatCount(n)} ${plural(n, "élément", "éléments")} canvas : vérifier s'ils peuvent être remplacés par des éléments HTML`,
       ...capLines(lines),
+      indicator,
     };
   },
 };

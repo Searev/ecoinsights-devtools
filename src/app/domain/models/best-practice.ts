@@ -82,4 +82,53 @@ export interface BestPractice {
    * which pair their lines with `images` instead (ARCH-DECISION-015).
    */
   lineRefs?: (LineRef | null)[];
+  /**
+   * US-029 (ARCH-DECISION-033): "offenders / expected" of this page, computed by the rule's
+   * `evaluate()`. Present only with a `compliance`: never while pending or "Non évaluée", never for
+   * `UseLazyLoading`, and absent in analyses saved before US-029 (never recomputed).
+   */
+  indicator?: BestPracticeIndicator;
 }
+
+/**
+ * US-029: units of the indicators, persisted as stable keys. The French labels (singular / plural)
+ * live in the view (`best-practices-view.ts`), so wording can change without a migration.
+ */
+export const RATIO_INDICATOR_UNITS = [
+  "uncached-files",
+  "autoplay-media",
+  "uncompressed-files",
+  "resized-images",
+  "unminified-files",
+  "unoptimised-images",
+  "http1-requests",
+  "missing-alternatives",
+] as const;
+
+export const COUNT_INDICATOR_UNITS = [
+  "inline-blocks",
+  "canvas-elements",
+  "css-files",
+  "domains",
+  "gif-files",
+  "requests",
+  "custom-fonts",
+] as const;
+
+export const PRESENCE_INDICATOR_UNITS = ["print-css"] as const;
+
+export type RatioIndicatorUnit = (typeof RATIO_INDICATOR_UNITS)[number];
+export type CountIndicatorUnit = (typeof COUNT_INDICATOR_UNITS)[number];
+export type PresenceIndicatorUnit = (typeof PRESENCE_INDICATOR_UNITS)[number];
+
+/**
+ * US-029 (ARCH-DECISION-033). Always counts what is wrong: a higher number is worse.
+ * - `ratio`: `offenders` flagged elements among `expected` checked ones (`offenders <= expected`).
+ * - `count`: `offenders` elements counted by the rule.
+ * - `presence`: whether the expected element exists (`present: false` is the offending value).
+ * Numbers are non-negative integers.
+ */
+export type BestPracticeIndicator =
+  | { kind: "ratio"; offenders: number; expected: number; unit: RatioIndicatorUnit }
+  | { kind: "count"; offenders: number; unit: CountIndicatorUnit }
+  | { kind: "presence"; present: boolean; unit: PresenceIndicatorUnit };

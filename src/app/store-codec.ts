@@ -1,4 +1,5 @@
 import { Analysis } from "./domain/models/analysis";
+import { isBestPracticeIndicator } from "./domain/best-practices/indicator";
 import { Service } from "./domain/models/service";
 
 export interface StoredData {
@@ -33,6 +34,10 @@ export function parseStoredData(json: string | null): StoredData {
               // Saved analyses are final: a stored estimation progress is stale, drop it.
               const decodedBp = { ...bp, category: bp.category ?? "content" };
               delete decodedBp.progress;
+              // US-029: keep a stored indicator only if it is well-formed.
+              if ("indicator" in decodedBp && !isBestPracticeIndicator(decodedBp.indicator)) {
+                delete decodedBp.indicator;
+              }
               return decodedBp;
             });
           }

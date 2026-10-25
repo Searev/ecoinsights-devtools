@@ -170,6 +170,11 @@ export interface SummaryOptions {
   noOffenderDetail: string;
   /** Line of an offender finding. */
   offenderLine: (finding: ImageFinding) => string;
+  /**
+   * US-029: when set, the graded result carries a ratio indicator. `extraEvaluatedImages` counts the
+   * evaluated images that are not findings; findings in state `estimated` are added to it.
+   */
+  indicator?: { unit: "resized-images" | "unoptimised-images"; extraEvaluatedImages: number };
 }
 
 /** Turns the findings of an image rule into its RuleResult (pending, graded or not evaluated). */
@@ -216,6 +221,15 @@ export function summariseImageFindings(
     images,
   };
   if (lines.length > 0) result.offenders = offenderLines(lines);
+  if (options.indicator !== undefined) {
+    result.indicator = {
+      kind: "ratio",
+      offenders: offenders.length,
+      expected:
+        options.indicator.extraEvaluatedImages + findings.filter((f) => f.state === "estimated").length,
+      unit: options.indicator.unit,
+    };
+  }
   return result;
 }
 

@@ -97,6 +97,19 @@ ui/  ──►  domain/  ◄──  infra/
 
 Registering a rule means adding one line in `domain/best-practices/index.ts`. No protocol, adapter or UI change is needed.
 
+**Static metadata and indicator (US-028, US-029).** Decisions: [ARCH-DECISION-032](ARCH-DECISION-032-static-rule-metadata-table.md) and [033](ARCH-DECISION-033-persisted-best-practice-indicator.md).
+
+- **Metadata:**
+  - Each rule id has one entry in `domain/best-practices/rule-metadata.ts` (`RULE_METADATA`, data only): the reference (`RWEB` or `RGAA` plus a code), the verbatim French description and the link.
+  - It is looked up by id when rendering (`ui/analysis/best-practice-reference.ts`), so saved analyses get it too. It is never persisted, and `index.ts` does not import it, so the background bundle has none of the texts.
+  - Descriptions are plain text with `**bold**` only (`ui/analysis/rich-text.ts`).
+  - The registry test requires one entry per rule.
+- **Indicator:**
+  - `evaluate()` returns `indicator` (`ratio` / `count` / `presence`, with a persisted unit key) next to every `compliance`, derived from the same sets as the grade.
+  - `evaluateRules` drops it when there is no compliance.
+  - `store-codec` validates it with `isBestPracticeIndicator` (`domain/best-practices/indicator.ts`).
+  - `best-practices-view.ts` formats it and builds the journey indicator (ratios summed, worst-page counts, presence "absente sur k pages sur n") and the per-page indicators of "Pages concernées".
+
 ### 3.4 Image estimation (US-001 to US-003)
 
 Decisions: [ARCH-DECISION-007](ARCH-DECISION-007-async-image-estimation.md) (async estimation), [008](ARCH-DECISION-008-wasm-image-codecs.md) (WASM codecs), [009](ARCH-DECISION-009-codec-web-worker.md) (Web Worker), [010](ARCH-DECISION-010-image-bytes-and-csp.md) (image bytes, CSP), [011](ARCH-DECISION-011-image-gain-model.md) (gain model).

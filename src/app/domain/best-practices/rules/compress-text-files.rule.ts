@@ -39,11 +39,13 @@ export const compressTextFilesRule: BestPracticeRule = {
   evaluate: ({ requests }) => {
     const offenders: Offender[] = [];
     const unknown = new Set<string>();
+    let checked = 0;
     for (const r of lastRequestPerUrl(requests, isSuccess2xx).values()) {
       const type = textFileType(r);
       if (type === undefined || r.responseSize < MIN_TEXT_FILE_BYTES) continue;
       const headers = r.responseHeaders;
       if (headers === undefined || Object.keys(headers).length === 0) continue;
+      checked += 1;
       const encoding = effectiveEncoding(headers["content-encoding"]);
       const kind = classify(encoding);
       if (kind === "unknown") unknown.add(encoding);
@@ -56,7 +58,11 @@ export const compressTextFilesRule: BestPracticeRule = {
         ? ""
         : ` (encodage non reconnu considéré comme compressé : ${[...unknown].join(", ")})`;
     if (offenders.length === 0) {
-      return { compliance: "A", detail: `Tous les fichiers textuels sont compressés${suffix}` };
+      return {
+        compliance: "A",
+        detail: `Tous les fichiers textuels sont compressés${suffix}`,
+        indicator: { kind: "ratio", offenders: 0, expected: checked, unit: "uncompressed-files" },
+      };
     }
     offenders.sort(
       (a, b) => Number(a.weak) - Number(b.weak) || b.size - a.size || a.url.localeCompare(b.url)
@@ -85,6 +91,7 @@ export const compressTextFilesRule: BestPracticeRule = {
       compliance: none > 0 ? "C" : "B",
       detail: `${parts.join(", ")}${suffix}`,
       ...capLines(lines),
+      indicator: { kind: "ratio", offenders: offenders.length, expected: checked, unit: "uncompressed-files" },
     };
   },
 };

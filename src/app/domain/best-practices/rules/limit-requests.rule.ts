@@ -16,11 +16,13 @@ export const limitRequestsRule: BestPracticeRule<never> = {
       return {
         compliance: "A",
         detail: `${formatCount(n)} ${plural(n, "requête", "requêtes")} HTTP`,
+        indicator: { kind: "count", offenders: n, unit: "requests" },
       };
     }
     return {
       compliance: n < C_THRESHOLD ? "B" : "C",
       detail: `${formatCount(n)} requêtes HTTP (${RECOMMENDED_MAX} au plus recommandées)`,
+      indicator: { kind: "count", offenders: n, unit: "requests" },
     };
   },
 };

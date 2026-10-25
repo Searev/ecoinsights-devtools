@@ -183,6 +183,10 @@ export const dontResizeImagesRule: BestPracticeRule<ResizePageData> = {
       .reduce((sum, c) => sum + (originalBytesOf(c.request) ?? 0), 0);
 
     return summariseImageFindings(findings, {
+      indicator: {
+        unit: "resized-images",
+        extraEvaluatedImages: candidates.filter((c) => !c.oversized).length,
+      },
       detailPrefix: `Densité d'écran : ${formatDensity(dpr)}\n`,
       extraEvaluatedBytes,
       offenderPhrase: (n) => `${n} image(s) surdimensionnée(s)`,

@@ -46,7 +46,7 @@ export function evaluateRules(
         estimates: input.estimates ?? UNAVAILABLE_ESTIMATES,
         contents: input.contents ?? UNAVAILABLE_CONTENTS,
       });
-      return {
+      const evaluated: BestPractice = {
         ...base,
         compliance: res.compliance,
         detail: res.detail,
@@ -55,6 +55,9 @@ export function evaluateRules(
         images: res.images,
         lineRefs: res.lineRefs,
       };
+      // US-029: an indicator never outlives a missing grade (pending, "Non évaluée").
+      if (res.compliance !== undefined && res.indicator !== undefined) evaluated.indicator = res.indicator;
+      return evaluated;
     } catch (e) {
       return {
         ...base,

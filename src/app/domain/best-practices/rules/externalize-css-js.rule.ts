@@ -51,9 +51,14 @@ export const externalizeCssJsRule: BestPracticeRule<ExternalizeCssJsPage> = {
   evaluate: ({ page }): RuleResult => {
     if (page === undefined) return { detail: "La page n'a pas pu être inspectée" };
     const n = page.blocks.length;
-    if (n === 0) return { compliance: "A", detail: "Aucun CSS ni JavaScript en ligne" };
+    const indicator = { kind: "count", offenders: n, unit: "inline-blocks" } as const;
+    if (n === 0) return { compliance: "A", detail: "Aucun CSS ni JavaScript en ligne", indicator };
     if (n <= 2) {
-      return { compliance: "A", detail: `${n} ${plural(n, "bloc", "blocs")} CSS ou JavaScript en ligne` };
+      return {
+        compliance: "A",
+        detail: `${n} ${plural(n, "bloc", "blocs")} CSS ou JavaScript en ligne`,
+        indicator,
+      };
     }
     const s = page.blocks.filter((b) => b.tag === "style").length;
     const j = n - s;
@@ -67,6 +72,7 @@ export const externalizeCssJsRule: BestPracticeRule<ExternalizeCssJsPage> = {
       compliance: n <= 5 ? "B" : "C",
       detail: `${n} blocs CSS ou JavaScript en ligne (${s} <style>, ${j} <script>) : à externaliser dans des fichiers mis en cache`,
       ...capLines(lines),
+      indicator,
     };
   },
 };

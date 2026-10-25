@@ -191,3 +191,24 @@ describe("limitCanvasRule performance", () => {
     expect(ms).toBeLessThan(10);
   });
 });
+
+describe("limitCanvasRule indicator (US-029)", () => {
+  const unit = "canvas-elements" as const;
+
+  it("no canvas gives a count of 0", () => {
+    expect(evC().indicator).toEqual({ kind: "count", offenders: 0, unit });
+  });
+
+  it("one canvas gives a count of 1", () => {
+    expect(evC(canvas()).indicator).toEqual({ kind: "count", offenders: 1, unit });
+  });
+
+  it("more than 20 canvases give the full count", () => {
+    const r = evC(...Array.from({ length: 30 }, () => canvas()));
+    expect(r.indicator).toEqual({ kind: "count", offenders: 30, unit });
+  });
+
+  it("sets no indicator when the page could not be inspected", () => {
+    expect(ev(undefined).indicator).toBeUndefined();
+  });
+});

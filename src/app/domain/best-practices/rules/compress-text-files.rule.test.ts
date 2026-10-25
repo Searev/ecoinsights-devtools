@@ -196,3 +196,41 @@ describe("compressTextFilesRule.evaluate", () => {
     expect(best).toBeLessThan(10);
   });
 });
+
+describe("compressTextFilesRule indicator (US-029)", () => {
+  it("grade B: deflate only, counted among every checked file", () => {
+    const r = ev([js("/a.js", "deflate"), js("/b.js", "gzip"), css("/c.css", "br")]);
+    expect(r.compliance).toBe("B");
+    expect(r.indicator).toEqual({ kind: "ratio", offenders: 1, expected: 3, unit: "uncompressed-files" });
+  });
+
+  it("grade C: uncompressed and weak files are offenders, unknown encodings are checked and good", () => {
+    const r = ev([js("/a.js"), js("/b.js", "deflate"), js("/c.js", "gzip"), js("/d.js", "weird")]);
+    expect(r.compliance).toBe("C");
+    expect(r.indicator).toEqual({ kind: "ratio", offenders: 2, expected: 4, unit: "uncompressed-files" });
+  });
+
+  it("grade A: 0 of n", () => {
+    const r = ev([js("/a.js", "gzip"), css("/b.css", "br")]);
+    expect(r.compliance).toBe("A");
+    expect(r.indicator).toEqual({ kind: "ratio", offenders: 0, expected: 2, unit: "uncompressed-files" });
+  });
+
+  it("scenario 5: no file in scope gives 0 of 0", () => {
+    const r = ev([]);
+    expect(r.compliance).toBe("A");
+    expect(r.indicator).toEqual({ kind: "ratio", offenders: 0, expected: 0, unit: "uncompressed-files" });
+  });
+
+  it("does not count files that are too small or without headers", () => {
+    const r = ev([js("/small.js", undefined, 100), req("/nohdr.js", { type: "text/javascript", responseSize: 40_000 }), js("/a.js", "gzip")]);
+    expect(r.indicator).toEqual({ kind: "ratio", offenders: 0, expected: 1, unit: "uncompressed-files" });
+  });
+
+  it("scenario 8: offenders is the full count above the 20-line cap", () => {
+    const files = Array.from({ length: 25 }, (_, i) => js(`/f${String(i).padStart(2, "0")}.js`));
+    const r = ev([...files, js("/ok.js", "gzip")]);
+    expect(r.offenders!.length).toBeLessThan(25);
+    expect(r.indicator).toEqual({ kind: "ratio", offenders: 25, expected: 26, unit: "uncompressed-files" });
+  });
+});
