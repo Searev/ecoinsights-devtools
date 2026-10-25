@@ -18,7 +18,8 @@ First public release.
 - **Licence:** `package.json` now declares `AGPL-3.0-or-later`, matching `LICENSE`. Third-party content (EcoIndex formula, RWEB descriptions) stays under CC BY-NC-ND 4.0.
 - **Dependencies:** each one is pinned to its latest patch release, for example vite 4.5.14, chart.js 4.4.9, tailwindcss 3.3.7 and postcss 8.4.49.
   - eslint-plugin-solid stays at 0.13.0, because 0.13.2 crashes on TypeScript `as` expressions with typescript-eslint 6.8.
-  - **solid-js 1.9.6** clears the critical `seroval` advisory, since `seroval` now resolves to 1.6.12. The JSX compiler `babel-preset-solid` is pinned to the same 1.9.6 through `overrides`. Versions 1.9.7 and later either keep a vulnerable `seroval` or need TypeScript 5.4 for their DOM types.
+  - **solid-js 1.9.16**, with the JSX compiler `babel-preset-solid` pinned to the same version through `overrides`.
+  - **TypeScript 5.5.4**, because the solid-js 1.9.16 types use `ContentVisibilityAutoStateChangeEvent`, which first appears in the DOM types of TypeScript 5.5.
 
 #### Fixed
 
