@@ -11,6 +11,10 @@ import { limitDomainsRule } from "./rules/limit-domains.rule";
 import { preferHttp2Rule } from "./rules/prefer-http2.rule";
 import { limitGifsRule } from "./rules/limit-gifs.rule";
 import { avoidMediaAutoplayRule } from "./rules/avoid-media-autoplay.rule";
+import { externalizeCssJsRule } from "./rules/externalize-css-js.rule";
+import { limitRequestsRule } from "./rules/limit-requests.rule";
+import { limitCssFilesRule } from "./rules/limit-css-files.rule";
+import { limitCanvasRule } from "./rules/limit-canvas.rule";
 import { BestPracticeRule } from "./rule";
 
 export const RULES: readonly BestPracticeRule<any>[] = [
@@ -28,4 +32,9 @@ export const RULES: readonly BestPracticeRule<any>[] = [
   preferHttp2Rule,
   limitGifsRule,
   avoidMediaAutoplayRule,
+  // EPIC-BP3 (US-024 to US-027)
+  externalizeCssJsRule,
+  limitRequestsRule,
+  limitCssFilesRule,
+  limitCanvasRule,
 ] as const;

@@ -7,6 +7,7 @@ import { MockBrowser } from "../../infra/mock-browser";
 import { PageAnalysis } from "../models/page-analysis";
 import { NetworkRequest } from "../models/network-request";
 import { BestPracticeRule } from "../best-practices/rule";
+import { limitRequestsRule } from "../best-practices/rules/limit-requests.rule";
 
 const BASE: WebFlowAnalysisParams = {
   refreshOnStart: false,
@@ -362,5 +363,18 @@ describe("analyseWebFlow", () => {
     browser.emitNetworkRequest(request("/a.js", 2000));
     expect(last()[0].requests).toHaveLength(1);
     expect(last()[0].requestSizeInKb).toBe(2);
+  });
+
+  it("US-025 scenario 5: LimitRequests counts exactly the page's Requêtes column", async () => {
+    browser.emitNetworkRequest(request("/a.js"));
+    browser.emitNetworkRequest(request("/a.js"));
+    browser.emitNetworkRequest({ ...request("/missing.js"), code: 404 });
+    await start({ checkBestPractices: true }, [limitRequestsRule]);
+    browser.emitNetworkRequest(request("/b.js"));
+    await vi.advanceTimersByTimeAsync(0);
+    const page = last()[0];
+    expect(page.requests).toHaveLength(4);
+    const bp = page.bestPractices!.find((b) => b.id === "LimitRequests")!;
+    expect(bp.detail).toBe(`${page.requests.length} requêtes HTTP`);
   });
 });

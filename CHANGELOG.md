@@ -1,5 +1,17 @@
 # Changelog
 
+## [Unreleased]: US-024 to US-027, epic BP3 (four new best practices)
+
+### Added
+
+- Four best practices, graded per page:
+  - **"Externaliser les CSS et JavaScript"** (`ExternalizeCssJs`, US-024): non-empty `<style>` and inline JavaScript `<script>` (no `src`; no type, `module` or a JavaScript MIME type) in the DOM at collection time, styles injected by scripts included. A for 0 to 2, B for 3 to 5, C for 6 or more. B and C list each block as "<script id=\"gtm\"> en ligne : 0,3 ko", largest first. Data scripts (`application/ld+json`, `importmap`, `speculationrules`, templates) are ignored.
+  - **"Limiter le nombre de requêtes HTTP"** (`LimitRequests`, US-025): every recorded request, the same number as the "Requêtes" column. A up to 40, B for 41 to 70, C for 71 or more. No lines.
+  - **"Limiter le nombre de fichiers CSS"** (`LimitCssFiles`, US-026): distinct CSS URLs answered 2xx or 304. B for 0 to 2 (styles possibly inlined or bundled into one oversized file), A for 3 to 10, C for 11 or more. B and C list "file name : weight", heaviest first.
+  - **"Limiter l'utilisation des éléments canvas"** (`LimitCanvas`, US-027): `<canvas>` elements attached to the top-frame DOM, displayed or not. A without any, B from one, never C. Lines give the displayed size ("<canvas id=\"chart\"> : 600 × 400 px", or "non affiché").
+- The two DOM rules are "Non évaluée" ("La page n'a pas pu être inspectée") when the page could not be inspected. They add two page scripts per collection.
+- Analyses saved earlier don't list the new rules.
+
 ## [Unreleased]: US-019 to US-021
 
 ### Fixed

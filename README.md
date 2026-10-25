@@ -79,6 +79,10 @@ concerné est notée A.
 | Privilégier HTTP/2 à HTTP/1 | part des requêtes réseau en HTTP/1.x : B sous 10 %, C à partir de 10 % |
 | Limiter l'utilisation des GIFs animés | fichiers GIF téléchargés de 5 ko ou plus : B pour un, C au-delà ; les GIF plus légers (pixels de suivi) sont ignorés et seulement mentionnés |
 | Éviter la lecture et le chargement automatique des vidéos et des sons | `video` et `audio` avec `autoplay` ou `preload="auto"` |
+| Externaliser les CSS et JavaScript | blocs `<style>` et `<script>` JavaScript écrits dans la page (non vides, sans `src`), y compris ceux ajoutés par script : A jusqu'à 2, B de 3 à 5, C à partir de 6 ; les scripts de données (`application/ld+json`, `importmap`…) sont ignorés |
+| Limiter le nombre de requêtes HTTP | toutes les requêtes enregistrées pour la page (le nombre de la colonne « Requêtes ») : A jusqu'à 40, B de 41 à 70, C à partir de 71 |
+| Limiter le nombre de fichiers CSS | fichiers CSS distincts chargés (2xx ou 304) : B pour 0 à 2 (styles peut-être intégrés à la page ou regroupés dans un fichier trop lourd), A de 3 à 10, C à partir de 11 |
+| Limiter l'utilisation des éléments canvas | éléments `<canvas>` présents dans la page, affichés ou non : B dès un élément, avec leur taille affichée |
 
 La minification est analysée en arrière-plan (« Analyse en cours… (2/5 fichiers) »). Seul le contenu déjà capturé
 par les outils de développement est lu : un fichier chargé avant le début de l'enregistrement est « non évalué ».
@@ -125,6 +129,9 @@ Cependant, dans une première approche, nous considérons que la méthodologie e
 Un serveur de développement local (`localhost`) répond en HTTP/1.1 : la pratique « Privilégier HTTP/2 à HTTP/1 »
 y est donc notée C. Dans une analyse enregistrée, les lignes « domaine : n requêtes » sont listées page par page :
 un même domaine peut apparaître plusieurs fois avec des nombres différents.
+Dans la liste des éléments concernés, deux lignes identiques ne sont affichées qu'une fois : deux scripts en ligne
+anonymes de même taille, ou deux `<canvas>` de même taille, n'occupent qu'une ligne, alors que le détail en compte
+deux.
 
 ## Développement
 

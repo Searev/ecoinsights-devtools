@@ -5,7 +5,7 @@ import { RULES } from "./index";
 const CATEGORIES = ["content", "images", "fonts", "network", "css", "js"];
 
 describe("RULES registry", () => {
-  it("registers the thirteen rules in order (EPIC-BP2 after the first four)", () => {
+  it("registers the seventeen rules in order (EPIC-BP2 after the first four, then EPIC-BP3)", () => {
     expect(RULES.map((r) => r.id)).toEqual([
       "PrintStyleSheet",
       "DontResizeImagesInBrowser",
@@ -20,10 +20,14 @@ describe("RULES registry", () => {
       "PreferHttp2",
       "LimitGifs",
       "AvoidMediaAutoplay",
+      "ExternalizeCssJs",
+      "LimitRequests",
+      "LimitCssFiles",
+      "LimitCanvas",
     ]);
   });
 
-  it("the print, resize, format, fonts, BP2 DOM and GIF (display boxes, EPIC-PV) rules have a collector", () => {
+  it("the print, resize, format, fonts, BP2 DOM, GIF (display boxes, EPIC-PV) and BP3 DOM rules have a collector", () => {
     expect(RULES.filter((r) => r.collect).map((r) => r.id)).toEqual([
       "PrintStyleSheet",
       "DontResizeImagesInBrowser",
@@ -33,6 +37,8 @@ describe("RULES registry", () => {
       "UseLazyLoading",
       "LimitGifs",
       "AvoidMediaAutoplay",
+      "ExternalizeCssJs",
+      "LimitCanvas",
     ]);
   });
 
